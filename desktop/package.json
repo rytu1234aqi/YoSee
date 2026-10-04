@@ -1,0 +1,15 @@
+{
+  "name": "youdekan-desktop",
+  "private": true,
+  "version": "0.1.1",
+  "description": "有得看 desktop shell",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "build:backend": "../.venv/bin/python scripts/build_backend.py"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.5.0"
+  }
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Godot Engine</title>
+    <link>https://godotengine.org/</link>
+    <item>
+      <title>Dev snapshot: Godot 4.5</title>
+      <link>https://godotengine.org/article/dev-snapshot-godot-4-5/</link>
+      <guid isPermaLink="false">godot-4-5</guid>
+      <pubDate>Fri, 02 Jan 2026 12:00:00 GMT</pubDate>
+      <description>A development snapshot.</description>
+    </item>
+  </channel>
+</rss>

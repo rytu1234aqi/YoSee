@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Game Developer</title>
+    <link>https://www.gamedeveloper.com/</link>
+    <item>
+      <title>Postmortem: a small game</title>
+      <link>https://www.gamedeveloper.com/design/postmortem-a-small-game</link>
+      <guid isPermaLink="false">postmortem</guid>
+      <pubDate>Sat, 03 Jan 2026 12:00:00 GMT</pubDate>
+      <description>What shipped and what did not.</description>
+    </item>
+    <item>
+      <title> </title>
+      <link>https://www.gamedeveloper.com/empty</link>
+      <description>no title</description>
+    </item>
+  </channel>
+</rss>

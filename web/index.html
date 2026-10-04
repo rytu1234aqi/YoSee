@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>有得看</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" data-i18n="brand">有得看</div>
+      <label class="search"><span class="sr-only" data-i18n="search">搜索</span><input id="query" data-i18n-placeholder="searchPlaceholder" placeholder="搜索文章" /></label>
+      <button id="refresh" class="icon-button" title="刷新文章" aria-label="刷新文章">↻</button>
+      <button id="import" class="icon-button" title="导入文章" aria-label="导入文章">⇧</button>
+      <button id="backup" class="icon-button" title="完整备份" aria-label="完整备份">⤓</button>
+      <button id="theme" class="icon-button" title="切换深色模式" aria-label="切换深色模式">◐</button>
+      <button id="language" class="language-button" title="切换语言" aria-label="切换语言">EN</button>
+    </header>
+    <main class="layout">
+      <aside class="sidebar" id="sidebar">
+        <h2 data-i18n="library">资料库</h2>
+        <button class="filter active" data-status="all" data-i18n="all">全部文章</button>
+        <button class="filter" data-status="unread" data-i18n="unread">未读</button>
+        <button class="filter" data-status="saved" data-i18n="saved">已收藏</button>
+        <button class="filter" data-status="archived" data-i18n="archived">已归档</button>
+        <h2 class="source-heading" data-i18n="sources">来源</h2>
+        <button class="source active" data-source="" data-i18n="allSources">全部来源</button>
+        <div id="sources"></div>
+        <button id="add-source" class="add-source" data-i18n="addSource">+ 添加来源</button>
+        <p id="sync-status" class="sync-status" role="status">正在检查更新…</p>
+      </aside>
+      <section class="feed-pane">
+        <div class="pane-heading"><h1 id="feed-title">最新文章</h1><span id="count"></span></div>
+        <button id="updates" class="updates" hidden>有新内容 · 刷新</button>
+        <div id="feed" class="feed"></div>
+        <div class="feed-footer">
+          <p id="feed-error" class="error" role="alert" hidden></p>
+          <p id="feed-status" role="status"></p>
+          <button id="load-more" hidden>加载更多</button>
+        </div>
+      </section>
+      <article class="detail-pane" id="detail">
+        <div class="empty">Select an article to read</div>
+      </article>
+    </main>
+    <dialog id="source-dialog">
+      <form method="dialog" id="source-form">
+        <h2>Add source</h2>
+        <label>Name<input name="name" required maxlength="200" placeholder="My favorite blog" /></label>
+        <label>Website or RSS/Atom URL<input name="feed_url" type="url" required placeholder="https://example.com" /></label>
+        <label>Check every (minutes)<input name="interval" type="number" min="5" max="43200" value="360" required /></label>
+        <p id="source-form-error" class="error" role="alert" hidden></p>
+        <button type="button" id="advanced-html-toggle" class="text-button">Configure a page without RSS</button>
+        <div id="html-config" hidden>
+          <label>Article item CSS selector<input name="item_selector" placeholder="article.post" /></label>
+          <label>Title CSS selector<input name="title_selector" placeholder="h2 a" /></label>
+          <label>Link CSS selector<input name="link_selector" placeholder="h2 a" /></label>
+          <label>Summary CSS selector (optional)<input name="summary_selector" placeholder=".excerpt" /></label>
+        </div>
+        <p class="form-note">You can pause or edit a source after adding it from its source settings.</p>
+        <div class="dialog-actions"><button value="cancel">Cancel</button><button id="source-submit" value="default">Add and fetch</button></div>
+      </form>
+    </dialog>
+    <dialog id="settings-dialog">
+      <form method="dialog" id="settings-form">
+        <h2>Source settings</h2>
+        <input type="hidden" name="id" />
+        <label>Name<input name="name" required maxlength="200" /></label>
+        <label>Check every (minutes)<input name="interval" type="number" min="5" max="43200" required /></label>
+        <label class="check-row"><input name="enabled" type="checkbox" /> Automatic updates enabled</label>
+        <p id="settings-form-error" class="error" role="alert" hidden></p>
+        <div class="dialog-actions"><button value="cancel">Cancel</button><button id="settings-submit" value="default">Save</button></div>
+      </form>
+    </dialog>
+    <dialog id="runs-dialog">
+      <div class="runs-head"><h2 id="runs-title">Fetch history</h2><button id="runs-close" class="icon-button dark" aria-label="Close">×</button></div>
+      <div id="runs-list"><p class="empty">Loading history…</p></div>
+    </dialog>
+    <input id="import-file" type="file" accept="application/json,.json" hidden />
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>

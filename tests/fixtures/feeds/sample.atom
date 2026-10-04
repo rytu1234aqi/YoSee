@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>GameDev Blog</title>
+  <updated>2026-06-02T00:00:00Z</updated>
+  <entry>
+    <title>Entity Systems</title>
+    <id>tag:example.com,2026:entity-systems</id>
+    <link rel="alternate" href="/posts/entity-systems"/>
+    <author><name>Casey</name></author>
+    <published>2026-06-01T08:30:00Z</published>
+    <updated>2026-06-02T01:00:00Z</updated>
+    <summary>Notes on entities.</summary>
+    <content type="html">&lt;p&gt;Body&lt;/p&gt;</content>
+  </entry>
+</feed>

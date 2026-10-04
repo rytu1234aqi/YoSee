@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "question_id": 42,
+      "title": "How do I &quot;rotate&quot; a vector?",
+      "link": "https://gamedev.stackexchange.com/questions/42/rotate-a-vector",
+      "body": "<p>I have a vector.</p>",
+      "owner": {
+        "display_name": "Amit &amp; Co",
+        "link": "https://gamedev.stackexchange.com/users/7/amit"
+      },
+      "tags": ["math", "vectors"],
+      "creation_date": 1767268800,
+      "last_activity_date": 1767355200,
+      "score": 8,
+      "answer_count": 1
+    },
+    {
+      "question_id": 43,
+      "title": " ",
+      "link": "https://gamedev.stackexchange.com/questions/43/blank",
+      "body": "<p>no title</p>"
+    }
+  ],
+  "has_more": true,
+  "quota_remaining": 299
+}
