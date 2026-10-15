@@ -1,3 +1,4 @@
+# Python dependencies and caches
 .venv/
 __pycache__/
 *.py[cod]
@@ -5,16 +6,37 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 *.egg-info/
+
+# Build outputs
 dist/
 build/
+/releases/
+
+# Local environment settings (keep shareable examples)
 .env
+.env.*
+!.env.example
+
+# Application data and logs
 *.sqlite
 *.sqlite3
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite3-wal
+*.sqlite3-shm
 *.db
+*.db-wal
+*.db-shm
 data/
+*.log
+
+# OS metadata
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# Desktop dependencies and generated files
 desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/runtime/
+/desktop/src-tauri/gen/schemas/
