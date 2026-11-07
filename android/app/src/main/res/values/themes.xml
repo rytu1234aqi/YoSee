@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 使用平台自带主题，不引入 appcompat 依赖 -->
+    <style name="Theme.YouDeKan" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

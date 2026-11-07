@@ -8,7 +8,7 @@ import sys
 import tempfile
 import threading
 from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 
 import uvicorn
@@ -26,8 +26,10 @@ def prepare_database(data_dir: Path, import_database: Path | None = None) -> Pat
         with tempfile.NamedTemporaryFile(dir=data_dir, suffix=".sqlite", delete=False) as file:
             temporary = Path(file.name)
         try:
-            with sqlite3.connect(import_database.resolve().as_uri() + "?mode=ro", uri=True) as src:
-                with sqlite3.connect(temporary) as dst:
+            with closing(sqlite3.connect(
+                import_database.resolve().as_uri() + "?mode=ro", uri=True,
+            )) as src:
+                with closing(sqlite3.connect(temporary)) as dst:
                     src.backup(dst)
                     if dst.execute("PRAGMA integrity_check").fetchone() != ("ok",):
                         raise ValueError("原数据库完整性检查失败，未迁移数据")

@@ -1,7 +1,7 @@
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{mpsc, Mutex};
 use std::thread;
@@ -47,14 +47,30 @@ fn healthy(address: SocketAddr) -> bool {
         && response.contains("\"status\":\"ok\"")
 }
 
-fn start_backend(resource_dir: &Path, data_dir: &Path) -> Result<(Backend, String), String> {
-    fs::create_dir_all(data_dir).map_err(|e| e.to_string())?;
+fn backend_data_dir(executable: &Path, user_data_dir: &Path) -> Result<PathBuf, String> {
+    if cfg!(windows) {
+        executable
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "无法确定软件安装目录".to_string())
+    } else {
+        Ok(user_data_dir.to_path_buf())
+    }
+}
+
+fn start_backend(
+    resource_dir: &Path,
+    data_dir: &Path,
+    import_database: Option<&Path>,
+) -> Result<(Backend, String), String> {
+    fs::create_dir_all(data_dir)
+        .map_err(|e| format!("无法创建数据目录 {}：{e}", data_dir.display()))?;
     let log_path = data_dir.join("backend.log");
     let log = OpenOptions::new()
         .create(true)
         .append(true)
         .open(&log_path)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("无法写入数据目录 {}：{e}", data_dir.display()))?;
     let mut stdout_log = log.try_clone().map_err(|e| e.to_string())?;
     let binary_name = if cfg!(windows) {
         "youdekan-backend.exe"
@@ -76,6 +92,9 @@ fn start_backend(resource_dir: &Path, data_dir: &Path) -> Result<(Backend, Strin
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(log);
+    if let Some(database) = import_database {
+        command.arg("--import-database").arg(database);
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -126,16 +145,24 @@ pub fn run() {
         .manage(BackendState::default())
         .setup(|app| {
             let resources = app.path().resource_dir()?;
-            let data_dir = app.path().app_data_dir()?;
+            let user_data_dir = app.path().app_data_dir()?;
+            let data_dir = backend_data_dir(&std::env::current_exe()?, &user_data_dir)?;
+            let legacy_database = user_data_dir.join("youdekan.sqlite");
+            let import_database = if cfg!(windows) && legacy_database.is_file() {
+                Some(legacy_database)
+            } else {
+                None
+            };
             let window = app.get_webview_window("main").ok_or("缺少主窗口")?;
             let handle = app.handle().clone();
             thread::spawn(move || {
-                let result = start_backend(&resources, &data_dir).and_then(|(backend, url)| {
-                    *handle.state::<BackendState>().0.lock().unwrap() = Some(backend);
-                    window
-                        .navigate(url.parse().map_err(|e| format!("服务地址错误：{e}"))?)
-                        .map_err(|e| e.to_string())
-                });
+                let result = start_backend(&resources, &data_dir, import_database.as_deref())
+                    .and_then(|(backend, url)| {
+                        *handle.state::<BackendState>().0.lock().unwrap() = Some(backend);
+                        window
+                            .navigate(url.parse().map_err(|e| format!("服务地址错误：{e}"))?)
+                            .map_err(|e| e.to_string())
+                    });
                 if let Err(error) = result {
                     let message =
                         serde_json::to_string(&format!("启动失败：{error}\n请退出后重试。"))

@@ -7,7 +7,7 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "build:backend": "../.venv/bin/python scripts/build_backend.py"
+    "build:backend": "uv run --no-sync python scripts/build_backend.py"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.5.0"
