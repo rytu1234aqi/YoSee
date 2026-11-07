@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix="youdekan-smoke-") as directory:
                 with urllib.request.urlopen(url + path, timeout=5) as response:
                     return response.headers, response.read().decode()
 
-            for attempt in range(50):
+            for _ in range(50):
                 try:
                     assert json.loads(get("/health")[1]) == {"status": "ok"}
                     break
@@ -59,20 +59,37 @@ with tempfile.TemporaryDirectory(prefix="youdekan-smoke-") as directory:
                 raise AssertionError("Health endpoint never became available")
             html = get("/")[1]
             assert "有得看" in html
+            token_match = re.search(r'<meta name="local-token" content="([^"]+)"', html)
+            assert token_match, "the page must carry the local API token"
+
+            def api_get(path):
+                request = urllib.request.Request(
+                    url + path, headers={"X-Local-Token": token_match.group(1)}
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    return response.headers, response.read().decode()
+
             for path in re.findall(r'(?:src|href)="(/static/[^\"]+)"', html):
                 headers, content = get(path)
                 assert "text/html" not in headers["Content-Type"], (path, headers)
+                if path.endswith((".js", ".mjs")):
+                    assert "javascript" in headers["Content-Type"], (path, headers)
+                elif path.endswith(".css"):
+                    assert "text/css" in headers["Content-Type"], (path, headers)
                 assert content.strip()
             for path in ("/static/feed-store.mjs", "/static/article.mjs"):
                 assert "javascript" in get(path)[0]["Content-Type"]
-            assert len(json.loads(get("/sources")[1])) > 0
-            items = json.loads(get("/feed/page")[1])["items"]
+            assert len(json.loads(api_get("/sources")[1])) > 0
+            items = json.loads(api_get("/feed/page")[1])["items"]
             assert len(items) > 0
-            article = json.loads(get("/content/" + items[0]["id"])[1])
+            article = json.loads(api_get("/content/" + items[0]["id"])[1])
             assert article["title"] == items[0]["title"]
-            assert len(json.loads(get("/export/content")[1])) == expected
-            assert json.loads(get("/sync/status")[1])["enabled"] is False
-            print(f"PASS: frozen runtime, migrations, UI assets, sources, {expected} articles and detail API")
+            assert len(json.loads(api_get("/export/content")[1])) == expected
+            assert json.loads(api_get("/sync/status")[1])["enabled"] is False
+            print(
+                "PASS: frozen runtime, migrations, UI assets, sources, "
+                f"{expected} articles and detail API"
+            )
             process.stdin.close()
             assert process.wait(timeout=10) == 0
             print("PASS: parent exit shuts down backend cleanly")

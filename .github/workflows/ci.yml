@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Lint
+        run: uv run ruff check server tests desktop/scripts
+      - name: Type check
+        run: uv run mypy server
+      - name: Python tests
+        run: uv run pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Browser logic tests
+        run: node --test tests/web/*.test.mjs
+
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release version is declared in one place
+        run: |
+          python - <<'PY'
+          import json, pathlib, re, tomllib
+          root = pathlib.Path(".")
+          version = tomllib.loads((root / "pyproject.toml").read_text())["project"]["version"]
+          checks = {
+              "server/__init__.py": f'__version__ = "{version}"',
+              "desktop/package.json": json.loads((root / "desktop/package.json").read_text())["version"],
+              "desktop/src-tauri/tauri.conf.json": json.loads(
+                  (root / "desktop/src-tauri/tauri.conf.json").read_text())["version"],
+              "desktop/src-tauri/Cargo.toml": f'version = "{version}"',
+          }
+          for path, expected in checks.items():
+              content = (root / path).read_text(encoding="utf-8")
+              assert expected in content, f"{path} does not declare {version}"
+          print(f"version {version} is consistent across {len(checks)} manifests")
+          PY
+      - name: Android Python sources stay in sync with the shared backend
+        run: |
+          bash android/scripts/sync_python.sh
+          diff -rq --exclude=__pycache__ server android/app/src/main/python/server
+          diff -rq web android/app/src/main/python/web
+          diff -rq configs android/app/src/main/python/configs
+          cmp alembic.ini android/app/src/main/python/alembic.ini
