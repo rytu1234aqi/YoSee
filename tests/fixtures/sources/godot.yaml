@@ -1,0 +1,12 @@
+id: godot
+name: Godot Engine
+slug: godot
+homepage_url: https://godotengine.org/
+provider:
+  type: rss
+config:
+  feed_url: https://godotengine.org/rss.xml
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 7200

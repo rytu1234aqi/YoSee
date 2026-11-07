@@ -1,4 +1,9 @@
-"""Configured sources through load, fetch, and the database."""
+"""Configured sources through load, fetch, and the database.
+
+The pipeline tests use a small fixed source set in ``fixtures/sources`` so
+they stay deterministic when new real sources are added to ``configs/sources``.
+The checked-in production sources get their own schema-only test below.
+"""
 
 import asyncio
 from pathlib import Path
@@ -17,7 +22,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 _ROOT = Path(__file__).parent
-_SOURCES = _ROOT.parent / "configs" / "sources"
+_PRODUCTION_SOURCES = _ROOT.parent / "configs" / "sources"
+_SOURCES = _ROOT / "fixtures" / "sources"
 _FEEDS = _ROOT / "fixtures" / "feeds"
 _API = questions_url(site="gamedev", sort="activity", pagesize=50, page=1)
 _LIST = "https://lostgarden.com/blog/"
@@ -30,7 +36,7 @@ _BODIES = {
 }
 
 
-def test_checked_in_sources_cover_rss_and_the_api() -> None:
+def test_fixture_sources_cover_rss_and_the_api() -> None:
     configs = load_source_configs(_SOURCES)
     rss = [config for config in configs if config.provider_type == "rss"]
     api = [config for config in configs if config.provider_type == "stackexchange"]
@@ -48,6 +54,34 @@ def test_checked_in_sources_cover_rss_and_the_api() -> None:
     assert [(config.id, config.config["site"]) for config in api] == [
         ("gamedev-stackexchange", "gamedev"),
     ]
+
+
+def test_production_sources_are_well_formed() -> None:
+    """Every checked-in source must load, be unique, and point at a usable URL.
+
+    Adding a source is a config-only change; this keeps a typo in an id, slug,
+    or feed URL from silently reaching a user's database on the next restart.
+    """
+
+    configs = load_source_configs(_PRODUCTION_SOURCES)
+    assert configs
+    ids = [config.id for config in configs]
+    slugs = [config.slug or config.id for config in configs]
+    assert len(ids) == len(set(ids))
+    assert len(slugs) == len(set(slugs))
+    assert all(config.fetch.interval_seconds > 0 for config in configs)
+    assert all(config.provider_type in {"rss", "html", "stackexchange"} for config in configs)
+    for config in configs:
+        if config.provider_type == "rss":
+            feed_url = config.config.get("feed_url")
+            assert isinstance(feed_url, str) and feed_url.startswith(("http://", "https://"))
+        elif config.provider_type == "html":
+            list_config = config.config.get("list")
+            assert isinstance(list_config, dict)
+            url = list_config.get("url")
+            assert isinstance(url, str) and url.startswith(("http://", "https://"))
+        else:
+            assert isinstance(config.config.get("site"), str)
 
 
 def _fetcher(

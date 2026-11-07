@@ -7,6 +7,7 @@ import pytest
 import uvicorn
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from server.ingestion.sources import load_source_configs
 from server.run import main
 
 
@@ -33,7 +34,8 @@ def test_launcher_initializes_sources_and_serves_client(
                 expected_type = "text/css" if asset.endswith(".css") else "text/javascript"
                 assert response.headers["content-type"].split(";", 1)[0] == expected_type
             assert client.get("/static/missing.mjs").status_code == 404
-            assert len(client.get("/sources").json()) == 5
+            source_dir = Path(__file__).parent.parent / "configs" / "sources"
+            assert len(client.get("/sources").json()) == len(load_source_configs(source_dir))
             assert client.get("/feed/page").json() == {"items": [], "next_cursor": None}
             assert client.get("/sync/status").json()["enabled"] is False
 

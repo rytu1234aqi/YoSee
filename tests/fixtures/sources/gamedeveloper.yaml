@@ -1,0 +1,12 @@
+id: gamedeveloper
+name: Game Developer
+slug: gamedeveloper
+homepage_url: https://www.gamedeveloper.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.gamedeveloper.com/rss.xml
+category: news
+enabled: true
+fetch:
+  interval_seconds: 1800

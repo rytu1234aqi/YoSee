@@ -1,0 +1,12 @@
+id: redblobgames
+name: Red Blob Games
+slug: redblobgames
+homepage_url: https://www.redblobgames.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.redblobgames.com/blog/posts.xml
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600

@@ -1,0 +1,14 @@
+id: gamedev-stackexchange
+name: Game Development Stack Exchange
+slug: gamedev-stackexchange
+homepage_url: https://gamedev.stackexchange.com/
+provider:
+  type: stackexchange
+config:
+  site: gamedev
+  sort: activity
+  pagesize: 50
+category: discussion
+enabled: true
+fetch:
+  interval_seconds: 1800

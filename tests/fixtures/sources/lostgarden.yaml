@@ -1,0 +1,29 @@
+id: lostgarden
+name: Lost Garden
+slug: lostgarden
+homepage_url: https://lostgarden.com/
+provider:
+  type: html
+config:
+  list:
+    url: https://lostgarden.com/blog/
+  selectors:
+    item: li.wp-block-post
+  fields:
+    title:
+      selector: h3.wp-block-post-title a
+    url:
+      selector: h3.wp-block-post-title a
+      attr: href
+    summary:
+      selector: .wp-block-post-excerpt__excerpt
+    cover:
+      selector: img
+      attr: src
+    published_at:
+      selector: time
+      attr: datetime
+category: design
+enabled: true
+fetch:
+  interval_seconds: 21600
