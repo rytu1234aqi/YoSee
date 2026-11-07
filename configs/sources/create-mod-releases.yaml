@@ -1,0 +1,12 @@
+id: create-mod-releases
+name: Create Mod Releases
+slug: create-mod-releases
+homepage_url: https://github.com/Creators-of-Create/Create
+provider:
+  type: rss
+config:
+  feed_url: https://github.com/Creators-of-Create/Create/releases.atom
+category: modding
+enabled: true
+fetch:
+  interval_seconds: 21600

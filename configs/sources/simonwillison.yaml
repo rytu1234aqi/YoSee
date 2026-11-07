@@ -1,0 +1,12 @@
+id: simonwillison
+name: Simon Willison's Weblog
+slug: simonwillison
+homepage_url: https://simonwillison.net/
+provider:
+  type: rss
+config:
+  feed_url: https://simonwillison.net/atom/everything/
+category: ai
+enabled: true
+fetch:
+  interval_seconds: 3600

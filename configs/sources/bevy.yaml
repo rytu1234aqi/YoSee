@@ -1,0 +1,12 @@
+id: bevy
+name: Bevy Engine
+slug: bevy
+homepage_url: https://bevyengine.org/
+provider:
+  type: rss
+config:
+  feed_url: https://bevyengine.org/atom.xml
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 21600

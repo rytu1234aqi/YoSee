@@ -1,0 +1,12 @@
+id: ahead-of-ai
+name: Ahead of AI
+slug: ahead-of-ai
+homepage_url: https://magazine.sebastianraschka.com/
+provider:
+  type: rss
+config:
+  feed_url: https://magazine.sebastianraschka.com/feed
+category: ai
+enabled: true
+fetch:
+  interval_seconds: 21600

@@ -1,0 +1,12 @@
+id: fabric-loader-releases
+name: Fabric Loader Releases
+slug: fabric-loader-releases
+homepage_url: https://github.com/FabricMC/fabric-loader
+provider:
+  type: rss
+config:
+  feed_url: https://github.com/FabricMC/fabric-loader/releases.atom
+category: modding
+enabled: true
+fetch:
+  interval_seconds: 21600

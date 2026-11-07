@@ -1,0 +1,12 @@
+id: unity-blog
+name: Unity Blog
+slug: unity-blog
+homepage_url: https://unity.com/blog
+provider:
+  type: rss
+config:
+  feed_url: https://blog.unity.com/rss
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 7200

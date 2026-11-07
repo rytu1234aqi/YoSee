@@ -1,0 +1,15 @@
+id: huggingface-blog
+name: Hugging Face Blog
+slug: huggingface-blog
+homepage_url: https://huggingface.co/blog
+provider:
+  type: rss
+config:
+  feed_url: https://huggingface.co/blog/feed.xml
+category: ai
+enabled: true
+fetch:
+  interval_seconds: 7200
+  # The feed publishes the full back catalogue (~900 entries); only keep the
+  # most recent ones so the first fetch does not flood the reader with 2021 posts.
+  max_items_per_run: 50

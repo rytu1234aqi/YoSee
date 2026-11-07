@@ -90,6 +90,16 @@ class IngestionPipeline:
             logger.warning("fetch %s failed: %s", source.id, exc)
             return self._fail(source, run, datetime.now(UTC), exc)
 
+        cap = _item_cap(source)
+        if cap is not None and len(items) > cap:
+            logger.info(
+                "fetch %s capped at %d of %d discovered items",
+                source.id,
+                cap,
+                len(items),
+            )
+            items = items[:cap]
+
         inserted = 0
         updated = 0
         for item in items:
@@ -162,6 +172,22 @@ class IngestionPipeline:
             ok=False,
             error=message,
         )
+
+
+def _item_cap(source: Source) -> int | None:
+    """Read the optional per-run import cap from a source's stored config.
+
+    Providers generally list newest first, so keeping the leading entries keeps
+    the most recent items. Invalid values are ignored rather than failing a run.
+    """
+
+    config = source.config_json
+    if not isinstance(config, dict):
+        return None
+    raw = config.get("max_items_per_run")
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return None
+    return raw
 
 
 def _store_validators(source: Source, etag: str | None, last_modified: str | None) -> None:

@@ -18,13 +18,18 @@ DEFAULT_SOURCES_DIR = Path("configs/sources")
 
 
 class FetchConfig(BaseModel):
-    """How often one source may be fetched, and how hard."""
+    """How often one source may be fetched, how hard, and how much it may import.
+
+    ``max_items_per_run`` caps the leading entries of an archive-style feed so a
+    publisher's full back catalogue is not imported on the first fetch.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     interval_seconds: int = Field(gt=0)
     min_request_interval: float = Field(default=0, ge=0)
     max_requests_per_run: int | None = Field(default=None, ge=0)
+    max_items_per_run: int | None = Field(default=None, ge=1)
 
 
 class SourceConfig(BaseModel):
@@ -193,4 +198,6 @@ def _config_json(config: SourceConfig) -> dict[str, Any]:
         stored["min_request_interval"] = config.fetch.min_request_interval
     if config.fetch.max_requests_per_run is not None:
         stored["max_requests_per_run"] = config.fetch.max_requests_per_run
+    if config.fetch.max_items_per_run is not None:
+        stored["max_items_per_run"] = config.fetch.max_items_per_run
     return stored

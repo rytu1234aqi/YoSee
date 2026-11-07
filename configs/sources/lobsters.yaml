@@ -1,0 +1,12 @@
+id: lobsters
+name: Lobsters
+slug: lobsters
+homepage_url: https://lobste.rs/
+provider:
+  type: rss
+config:
+  feed_url: https://lobste.rs/rss
+category: discussion
+enabled: true
+fetch:
+  interval_seconds: 3600

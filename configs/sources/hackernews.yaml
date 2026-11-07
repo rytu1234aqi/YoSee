@@ -1,0 +1,12 @@
+id: hackernews
+name: Hacker News (100+ points)
+slug: hackernews
+homepage_url: https://news.ycombinator.com/
+provider:
+  type: rss
+config:
+  feed_url: https://hnrss.org/frontpage?points=100
+category: discussion
+enabled: true
+fetch:
+  interval_seconds: 1800
