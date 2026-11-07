@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from server.ingestion.dedup import DedupAction, DedupKey, DedupService, MatchOn, canonical_url_hash
 from server.ingestion.normalizer import NormalizedContentItem
 from server.models.content import ContentItem
+from server.security import sanitize_html
 
 
 class ContentRepository:
@@ -81,7 +82,7 @@ class ContentRepository:
             content_type=ContentType(str(record.get("content_type") or "ARTICLE")),
             title=str(record["title"]),
             summary=str(record["summary"]) if record.get("summary") else None,
-            content_html=str(record["content_html"]) if record.get("content_html") else None,
+            content_html=sanitize_html(record.get("content_html")),
             content_text=str(record["content_text"]) if record.get("content_text") else None,
             canonical_url=str(record["canonical_url"]),
             source_url=str(record["source_url"]) if record.get("source_url") else None,
@@ -156,7 +157,7 @@ def _new_row(item: NormalizedContentItem, key: DedupKey, fetched_at: datetime) -
         content_type=item.content_type,
         title=item.title,
         summary=item.summary,
-        content_html=item.content_html,
+        content_html=sanitize_html(item.content_html),
         content_text=item.content_text,
         canonical_url=key.canonical_url,
         source_url=item.source_url,
@@ -183,7 +184,7 @@ def _apply_update(
     row.content_type = item.content_type
     row.title = item.title
     row.summary = item.summary
-    row.content_html = item.content_html
+    row.content_html = sanitize_html(item.content_html)
     row.content_text = item.content_text
     row.canonical_url = key.canonical_url
     row.source_url = item.source_url

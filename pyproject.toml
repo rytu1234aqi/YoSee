@@ -1,7 +1,7 @@
 [project]
 name = "gamedev-feed"
-version = "0.0.0"
-description = "Personal GameDev content hub. Milestone 0 is the ingestion vertical slice."
+version = "0.1.1"
+description = "有得看 / YoSee: a local, offline-first content reader with multi-platform shells."
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.0",

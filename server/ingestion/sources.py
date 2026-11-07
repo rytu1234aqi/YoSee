@@ -153,10 +153,31 @@ def upsert_sources(session: Session, configs: list[SourceConfig]) -> list[Source
     return rows
 
 
-def sync_sources(session: Session, directory: Path = DEFAULT_SOURCES_DIR) -> list[Source]:
-    """Load a directory and upsert every source. The caller commits."""
+def sync_sources(
+    session: Session,
+    directory: Path = DEFAULT_SOURCES_DIR,
+    *,
+    refresh_existing: bool = False,
+) -> list[Source]:
+    """Load a directory and create missing sources. The caller commits.
 
-    return upsert_sources(session, load_source_configs(directory))
+    Existing rows keep runtime fields (name, enabled, interval) edited through
+    the UI; restarting must not silently re-enable a paused source. Callers
+    that intentionally want to re-apply YAML can pass ``refresh_existing``.
+    """
+
+    configs = load_source_configs(directory)
+    if refresh_existing:
+        return upsert_sources(session, configs)
+    rows: list[Source] = []
+    for config in configs:
+        row = session.get(Source, config.id)
+        if row is None:
+            row = source_from_config(config)
+            session.add(row)
+        rows.append(row)
+    session.flush()
+    return rows
 
 
 def _provider_type(config: SourceConfig) -> str:

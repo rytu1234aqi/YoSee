@@ -85,7 +85,10 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
-            ["source_id"], ["sources.id"], name=op.f("fk_content_items_source_id_sources")
+            ["source_id"],
+            ["sources.id"],
+            name=op.f("fk_content_items_source_id_sources"),
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_content_items")),
         sa.UniqueConstraint("source_id", "external_id", name="uq_content_items_source_external_id"),
@@ -120,7 +123,10 @@ def upgrade() -> None:
         sa.Column("error_type", sa.String(length=128), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["source_id"], ["sources.id"], name=op.f("fk_fetch_runs_source_id_sources")
+            ["source_id"],
+            ["sources.id"],
+            name=op.f("fk_fetch_runs_source_id_sources"),
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_fetch_runs")),
     )

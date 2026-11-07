@@ -40,5 +40,11 @@ class Source(Base, TimestampMixin):
     etag: Mapped[str | None] = mapped_column(String(512))
     last_modified: Mapped[str | None] = mapped_column(String(256))
 
-    items: Mapped[list["ContentItem"]] = relationship(back_populates="source")
-    fetch_runs: Mapped[list["FetchRun"]] = relationship(back_populates="source")
+    # The database owns the ON DELETE CASCADE; do not let the ORM null out
+    # NOT NULL child foreign keys when a source is removed.
+    items: Mapped[list["ContentItem"]] = relationship(
+        back_populates="source", passive_deletes=True
+    )
+    fetch_runs: Mapped[list["FetchRun"]] = relationship(
+        back_populates="source", passive_deletes=True
+    )

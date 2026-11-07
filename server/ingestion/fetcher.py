@@ -9,18 +9,23 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Self
+from urllib.parse import urljoin
 
 import httpx
 
 from server.ingestion.errors import FetchError, IngestionError, RateLimitError
+from server.security import UnsafeUrlError, validate_public_url
 
 DEFAULT_USER_AGENT = "GameDevFeed/0.0 (personal content reader)"
 DEFAULT_TIMEOUT_SECONDS = 20.0
 DEFAULT_MAX_RETRIES = 3
+MAX_REDIRECTS = 5
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
 # 404, parser errors, and validation errors are not retried. 429 is handled
 # separately so a refusal does not become three extra hits.
 _RETRYABLE_STATUS = frozenset({408, 425, 500, 502, 503, 504})
+_REDIRECT_STATUS = frozenset({301, 302, 303, 307, 308})
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +81,9 @@ class Fetcher:
         self._max_requests_per_run = max_requests_per_run
         self._sleep = sleep or _default_sleep
         self._monotonic = monotonic or _default_monotonic
+        # A caller-supplied transport/client is used by tests and by offline
+        # replay; public-host checks only apply to real network requests.
+        self._check_public_host = transport is None and client is None
         self._sent = 0
         self._last_finished_at: float | None = None
 
@@ -102,17 +110,53 @@ class Fetcher:
         await self._reserve_request(url)
         try:
             if self._client is not None:
-                return await self._send(self._client, url, headers, etag, last_modified)
+                return await self._get_with_redirects(
+                    self._client, url, headers, etag, last_modified
+                )
             async with self._build_client() as client:
-                return await self._send(client, url, headers, etag, last_modified)
+                return await self._get_with_redirects(client, url, headers, etag, last_modified)
         finally:
             self._last_finished_at = self._monotonic()
+
+    async def _get_with_redirects(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        headers: Mapping[str, str] | None,
+        etag: str | None,
+        last_modified: str | None,
+    ) -> FetchResponse:
+        """Follow redirects manually so every hop is validated before the hop.
+
+        ``follow_redirects=True`` would let a public URL bounce into the local
+        network or a cloud metadata endpoint without another check.
+        """
+
+        current = url
+        for hop in range(MAX_REDIRECTS + 1):
+            self._assert_public(current)
+            response = await self._send(client, current, headers, etag, last_modified)
+            location = response.headers.get("location")
+            if response.status_code not in _REDIRECT_STATUS or not location:
+                return response
+            if hop >= MAX_REDIRECTS:
+                raise FetchError(f"GET {url} exceeded {MAX_REDIRECTS} redirects", url=url)
+            current = urljoin(current, location)
+        raise FetchError(f"GET {url} exceeded {MAX_REDIRECTS} redirects", url=url)
+
+    def _assert_public(self, url: str) -> None:
+        if not self._check_public_host:
+            return
+        try:
+            validate_public_url(url, resolve_dns=True)
+        except UnsafeUrlError as exc:
+            raise FetchError(f"blocked URL target: {exc}", url=url) from exc
 
     def _build_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             transport=self._transport,
             timeout=httpx.Timeout(self._timeout),
-            follow_redirects=True,
+            follow_redirects=False,
         )
 
     async def _reserve_request(self, url: str) -> None:
@@ -151,7 +195,12 @@ class Fetcher:
                 await self._sleep(_backoff(attempt))
                 continue
 
-            if response.status_code == 304 or response.status_code < 300:
+            declared = response.headers.get("content-length")
+            if declared and declared.isdigit() and int(declared) > MAX_RESPONSE_BYTES:
+                raise FetchError(
+                    f"GET {url} response exceeded {MAX_RESPONSE_BYTES} bytes", url=url
+                )
+            if response.status_code == 304 or response.status_code < 400:
                 return _to_response(response)
             if response.status_code in _RETRYABLE_STATUS and attempt < self._max_retries:
                 await self._sleep(_backoff(attempt))
@@ -183,11 +232,17 @@ def _backoff(attempt: int) -> float:
 
 def _to_response(response: httpx.Response) -> FetchResponse:
     headers = {key.lower(): value for key, value in response.headers.items()}
+    body = response.content
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise FetchError(
+            f"GET {response.url} response exceeded {MAX_RESPONSE_BYTES} bytes",
+            url=str(response.url),
+        )
     return FetchResponse(
         url=str(response.url),
         status_code=response.status_code,
         headers=headers,
-        body=response.content,
+        body=body,
         text=response.text,
         etag=headers.get("etag"),
         last_modified=headers.get("last-modified"),

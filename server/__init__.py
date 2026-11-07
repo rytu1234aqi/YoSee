@@ -1,6 +1,8 @@
-"""GameDev content hub server package.
+"""有得看 (YoSee) server package.
 
-Milestone 0 only uses the ingestion pipeline. The HTTP API is not started yet.
+Contains the local HTTP API, the ingestion pipeline and the SQLite models.
+The version here is the single source of truth; release scripts propagate it
+to the desktop and Android manifests.
 """
 
-__version__ = "0.0.0"
+__version__ = "0.1.1"

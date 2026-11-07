@@ -5,12 +5,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from server.database.base import Base
-from server.database.session import create_db_engine, create_session_factory
-from server.models import ContentItem, ContentType, Source
-from server.reader.app import _card_label, _meta
-from server.reader.library import Library, display_text, sqlite_path
-from sqlalchemy.orm import Session
+
+pytest.importorskip("tkinter", reason="the legacy Tk reader is an optional desktop extra")
+
+from server.database.base import Base  # noqa: E402
+from server.database.session import create_db_engine, create_session_factory  # noqa: E402
+from server.models import ContentItem, ContentType, Source  # noqa: E402
+from server.reader.app import _card_label, _meta  # noqa: E402
+from server.reader.library import Library, display_text, sqlite_path  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 
 def _database(tmp_path: Path) -> str:

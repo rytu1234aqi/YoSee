@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -44,6 +45,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--poll-seconds must be finite and positive")
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
+    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+        print(
+            "warning: binding a non-loopback host exposes the local reader to the network; "
+            "keep the generated API token private",
+            file=sys.stderr,
+        )
 
     root = Path(__file__).resolve().parent.parent
     initialize_database(root, args.sources_dir, migrate=not args.no_migrate)

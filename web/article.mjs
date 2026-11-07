@@ -42,13 +42,15 @@ export function articleFragment(item) {
       parent.append(document.createTextNode(node.textContent));
       return;
     }
-    if (node.nodeType !== Node.ELEMENT_NODE || dropped.has(node.tagName)) return;
-    if (!allowed.has(node.tagName)) {
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const tag = (node.tagName || "").toUpperCase();
+    if (dropped.has(tag) || node.namespaceURI !== "http://www.w3.org/1999/xhtml") return;
+    if (!allowed.has(tag)) {
       for (const child of node.childNodes) copy(child, parent);
       return;
     }
-    const element = document.createElement(node.tagName.toLowerCase());
-    if (node.tagName === "A") {
+    const element = document.createElement(tag.toLowerCase());
+    if (tag === "A") {
       const href = safeUrl(node.getAttribute("href"), item.canonical_url);
       if (href) {
         element.href = href;
@@ -56,7 +58,7 @@ export function articleFragment(item) {
         element.rel = "noopener noreferrer";
       }
     }
-    if (node.tagName === "IMG") {
+    if (tag === "IMG") {
       const src = safeUrl(node.getAttribute("src"), item.canonical_url);
       if (!src) return;
       element.src = src;

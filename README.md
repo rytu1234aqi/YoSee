@@ -48,27 +48,44 @@ uv sync --locked
 ./.venv/bin/python -m server.ingestion.cli fetch-all
 ```
 
-调度器用于一个本地服务进程；不要同时启动多个自动抓取进程或并行运行手动抓取。
-当前没有账号或跨设备同步，默认仅监听本机。
+调度器用于一个本地服务进程。手动抓取（添加来源、左栏刷新）与后台轮询共用同一把锁，
+不会并发写入 SQLite；仍不要同时启动多个服务进程。当前没有账号或跨设备同步，
+默认仅监听本机。
+
+## 安全模型
+
+- 服务启动时生成随机 token 并注入首页，所有 API 请求需携带 `X-Local-Token`；
+  Host 非回环且无 token 的请求被拒绝，用于阻断跨站调用与 DNS rebinding。
+- 来源 URL 拒绝回环、私网、链路本地与保留地址；重定向逐跳重新校验，响应体上限 8 MB。
+- 外站 HTML 在入库前按标签/属性白名单净化，接口输出再次净化；所有响应附带 CSP。
+- 导入内容按字段与长度严格校验，导入的来源强制离线，不会重新开始抓取。
+- 删除来源时在同一事务内清除文章、抓取记录与阅读状态。
 
 ## 验证
 
 ```bash
 ./.venv/bin/python -m pytest -q
 ./.venv/bin/python -m mypy server
-./.venv/bin/ruff check server tests
+./.venv/bin/ruff check server tests desktop/scripts
 node --test tests/web/*.test.mjs
 ```
 
 Python 测试使用临时数据库和模拟 HTTP，包括启动初始化、来源调度、失败隔离、关闭取消、
-抓取期间的并发写入，以及有新文章插入时的分页一致性。前端逻辑测试仅需要 Node.js，
-不需要安装 npm 依赖。浏览器交互与外站当前可访问性需另行实测。
+抓取期间的并发写入，以及有新文章插入时的分页一致性；`tests/test_hardening.py` 覆盖
+SSRF、本地 token、HTML 净化、导入去重与级联删除。`tests/test_reader.py` 依赖可选的
+Tkinter，环境没有安装时会自动跳过。前端逻辑测试仅需要 Node.js，不需要 npm 依赖。
+浏览器交互与外站当前可访问性需另行实测。
+
+CI 在 `.github/workflows/ci.yml` 中执行同样四项检查，并额外校验版本一致性与
+Android 源码拷贝是否与根目录同步。
 
 ## 主要入口
 
 - `server/run.py`：初始化和启动命令。
-- `server/ingestion/scheduler.py`：按来源间隔调度抓取。
-- `server/api.py`：`/feed/page`、文章详情和阅读状态、`/sync/status`。
+- `server/ingestion/scheduler.py`：按来源间隔调度抓取，也是手动抓取的唯一入口。
+- `server/security.py`：URL 白名单、HTML 净化与本地 Host 判定。
+- `server/api.py`：`/feed/page`、文章详情和阅读状态、`/sync/status`，以及来源管理、
+  发现、导入/导出/备份和本地请求守卫。
 - `web/`：客户端界面、分页状态管理与正文渲染。
 
 原有 `/feed?limit=50&offset=0` 接口保留兼容；客户端使用 `/feed/page` 返回的

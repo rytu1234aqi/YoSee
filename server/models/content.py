@@ -51,10 +51,14 @@ class ContentItem(Base, TimestampMixin):
         ),
         UniqueConstraint("url_hash", name="uq_content_items_url_hash"),
         Index("ix_content_items_published_at", "published_at"),
+        Index("ix_content_items_published_id", "published_at", "id"),
+        Index("ix_content_items_source_published_id", "source_id", "published_at", "id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), nullable=False)
+    source_id: Mapped[str] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), nullable=False
+    )
     external_id: Mapped[str | None] = mapped_column(String(512))
     content_type: Mapped[ContentType] = mapped_column(
         Enum(ContentType, native_enum=False, length=32),

@@ -3,24 +3,51 @@
 import asyncio
 import base64
 import binascii
+import hashlib
 import re
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.orm import Session
+from starlette.responses import Response
 
+from server import __version__
 from server.database.session import create_db_engine, create_session_factory, get_database_url
+from server.ingestion.dedup import canonical_url_hash
 from server.ingestion.fetcher import Fetcher
-from server.ingestion.pipeline import FetchResult, IngestionPipeline
+from server.ingestion.pipeline import FetchResult
 from server.ingestion.scheduler import FetchScheduler
 from server.models import ContentItem, FetchRun, ReadingState, Source
 from server.repositories.content_repository import ContentRepository
+from server.security import (
+    MAX_BODY_BYTES,
+    MAX_HTML_LENGTH,
+    UnsafeUrlError,
+    is_loopback_host,
+    safe_http_url,
+    sanitize_html,
+    token_matches,
+    validate_source_url,
+)
+
+# Applied by the middleware so the browser, Tauri and the Android WebView all
+# get the same second line of defence behind server-side HTML sanitization.
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self' blob:; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob: http: https:; "
+    "connect-src 'self'; "
+    "object-src 'none'; base-uri 'none'; frame-src 'none'"
+)
 
 
 class FeedItem(BaseModel):
@@ -54,23 +81,28 @@ class SourceItem(BaseModel):
     last_error: str | None = None
 
 
+def _clean_name(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError("name must not be empty")
+    return cleaned
+
+
+def _clean_url(value: str) -> str:
+    try:
+        return validate_source_url(value)
+    except UnsafeUrlError as exc:
+        raise ValueError(str(exc)) from exc
+
+
 class SourceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     feed_url: str = Field(min_length=1, max_length=2048)
     fetch_interval_seconds: int = Field(default=21600, ge=300, le=2592000)
 
-    @classmethod
-    def validate_url(cls, value: str) -> str:
-        parsed = urlparse(value.strip())
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("feed_url must be an HTTP or HTTPS URL")
-        return value.strip()
-
     def model_post_init(self, __context: object) -> None:
-        self.name = self.name.strip()
-        self.feed_url = self.validate_url(self.feed_url)
-        if not self.name:
-            raise ValueError("name must not be empty")
+        self.name = _clean_name(self.name)
+        self.feed_url = _clean_url(self.feed_url)
 
 
 class SourceDiscover(BaseModel):
@@ -78,10 +110,7 @@ class SourceDiscover(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
     def model_post_init(self, __context: object) -> None:
-        parsed = urlparse(self.url.strip())
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("url must be an HTTP or HTTPS URL")
-        self.url = parsed.geturl()
+        self.url = _clean_url(self.url)
         if self.name is not None:
             self.name = self.name.strip() or None
 
@@ -96,17 +125,18 @@ class HtmlSourceCreate(BaseModel):
     fetch_interval_seconds: int = Field(default=21600, ge=300, le=2592000)
 
     def model_post_init(self, __context: object) -> None:
-        parsed = urlparse(self.url.strip())
-        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-            raise ValueError("url must be an HTTP or HTTPS URL")
-        self.url = parsed.geturl()
-        self.name = self.name.strip()
+        self.url = _clean_url(self.url)
+        self.name = _clean_name(self.name)
 
 
 class SourceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     enabled: bool | None = None
     fetch_interval_seconds: int | None = Field(default=None, ge=300, le=2592000)
+
+    def model_post_init(self, __context: object) -> None:
+        if self.name is not None:
+            self.name = _clean_name(self.name)
 
 
 class SourceAction(BaseModel):
@@ -120,10 +150,6 @@ class SourceAction(BaseModel):
     updated: int
     ok: bool
     error: str | None = None
-
-
-class SourceFetchAction(SourceAction):
-    pass
 
 
 class FetchRunItem(BaseModel):
@@ -143,11 +169,54 @@ class ExportRequest(BaseModel):
     include_reading_state: bool = True
 
 
+class ImportSource(BaseModel):
+    """A source record from a backup. Imported sources are always offline."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(min_length=1, max_length=128)
+    name: str | None = Field(default=None, max_length=200)
+    slug: str | None = Field(default=None, max_length=200)
+    provider_type: str | None = Field(default=None, max_length=64)
+    homepage_url: str | None = Field(default=None, max_length=2048)
+    config_json: dict[str, Any] = Field(default_factory=dict)
+    fetch_interval_seconds: int = Field(default=86400, ge=300, le=2592000)
+
+
+class ImportArticle(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str | None = Field(default=None, max_length=36)
+    source_id: str | None = Field(default=None, max_length=128)
+    source_name: str | None = Field(default=None, max_length=200)
+    external_id: str | None = Field(default=None, max_length=512)
+    content_type: str | None = Field(default=None, max_length=32)
+    title: str = Field(min_length=1, max_length=4000)
+    summary: str | None = Field(default=None, max_length=20000)
+    content_html: str | None = Field(default=None, max_length=MAX_HTML_LENGTH)
+    content_text: str | None = Field(default=None, max_length=MAX_HTML_LENGTH)
+    canonical_url: str = Field(min_length=1, max_length=2048)
+    source_url: str | None = Field(default=None, max_length=2048)
+    author: str | None = Field(default=None, max_length=512)
+    published_at: str | None = Field(default=None, max_length=64)
+    fetched_at: str | None = Field(default=None, max_length=64)
+
+
+class ImportState(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    content_id: str = Field(min_length=1, max_length=36)
+    is_read: bool = False
+    saved: bool = False
+
+
 class ImportRequest(BaseModel):
-    items: list[dict[str, object]] | None = Field(default=None, max_length=10000)
-    sources: list[dict[str, object]] | None = Field(default=None, max_length=1000)
-    articles: list[dict[str, object]] | None = Field(default=None, max_length=10000)
-    reading_states: list[dict[str, object]] | None = Field(default=None, max_length=10000)
+    model_config = ConfigDict(extra="ignore")
+
+    items: list[ImportArticle] | None = Field(default=None, max_length=10000)
+    sources: list[ImportSource] | None = Field(default=None, max_length=1000)
+    articles: list[ImportArticle] | None = Field(default=None, max_length=10000)
+    reading_states: list[ImportState] | None = Field(default=None, max_length=10000)
 
 
 class ImportResult(BaseModel):
@@ -164,9 +233,26 @@ class BackupResponse(BaseModel):
 
 
 def _source_id(name: str, feed_url: str) -> str:
+    """Stable across restarts: Python's builtin ``hash`` is salted per process."""
+
     base = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "source"
-    suffix = abs(hash(feed_url)) % 1000000
-    return f"custom-{base[:80]}-{suffix:06d}"
+    suffix = hashlib.sha256(feed_url.strip().encode("utf-8")).hexdigest()[:10]
+    return f"custom-{base[:80]}-{suffix}"
+
+
+def _source_action(source: SourceItem, result: FetchResult) -> SourceAction:
+    return SourceAction(
+        id=source.id,
+        name=source.name,
+        slug=source.slug,
+        enabled=source.enabled,
+        source=source,
+        discovered=result.discovered,
+        inserted=result.inserted,
+        updated=result.updated,
+        ok=result.ok,
+        error=result.error,
+    )
 
 
 def _discover_feed(body: bytes, page_url: str) -> str | None:
@@ -309,9 +395,14 @@ def create_app(
     *,
     auto_fetch: bool = False,
     poll_seconds: float = 30,
-    fetcher_factory: Callable[[], Fetcher] = Fetcher,
+    fetcher_factory: Callable[..., Fetcher] = Fetcher,
+    auth_token: str | None = None,
 ) -> FastAPI:
-    """Create an API instance; ``database_url`` is injectable for tests."""
+    """Create an API instance; ``database_url`` is injectable for tests.
+
+    ``auth_token`` is generated by the web entry points. Tests and embedding
+    callers that pass no token keep the legacy open behaviour.
+    """
 
     url = database_url or get_database_url()
     engine = create_db_engine(url)
@@ -328,14 +419,47 @@ def create_app(
             await scheduler.stop()
             engine.dispose()
 
-    app = FastAPI(title="有得看", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="有得看", version=__version__, lifespan=lifespan)
+    app.state.local_token = auth_token
+
+    @app.middleware("http")
+    async def local_guard(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        """Reject cross-site and DNS-rebound requests to the local API.
+
+        A browser page cannot learn the token, and a rebound hostname is not a
+        loopback host, so both are refused before any endpoint runs.
+        """
+
+        path = request.url.path
+        public = path in {"/", "/health", "/docs", "/redoc", "/openapi.json"}
+        public = public or path.startswith("/static/")
+        provided = request.headers.get("x-local-token", "")
+        authorized = auth_token is not None and token_matches(provided, auth_token)
+        if auth_token is not None:
+            host = request.headers.get("host", "")
+            if not is_loopback_host(host) and not authorized:
+                return JSONResponse(status_code=400, content={"detail": "invalid host header"})
+            if not public and not authorized:
+                return JSONResponse(
+                    status_code=401, content={"detail": "missing or invalid local token"}
+                )
+            declared = request.headers.get("content-length")
+            if declared and declared.isdigit() and int(declared) > MAX_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413, content={"detail": "request body too large"}
+                )
+        response = await call_next(request)
+        response.headers.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        return response
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     @app.get("/sync/status", response_model=SyncStatus)
-    async def sync_status() -> SyncStatus:
+    def sync_status() -> SyncStatus:
         with factory() as session:
             failed = (
                 session.scalar(
@@ -366,6 +490,7 @@ def create_app(
 
     @app.post("/sources", response_model=SourceAction, status_code=201)
     def create_source(payload: SourceCreate) -> SourceAction:
+        parsed = urlparse(payload.feed_url)
         source_id = _source_id(payload.name, payload.feed_url)
         with factory() as session:
             if session.get(Source, source_id) is not None:
@@ -375,7 +500,7 @@ def create_app(
                 name=payload.name,
                 slug=source_id,
                 provider_type="rss",
-                homepage_url=f"{urlparse(payload.feed_url).scheme}://{urlparse(payload.feed_url).netloc}",
+                homepage_url=f"{parsed.scheme}://{parsed.netloc}",
                 enabled=True,
                 config_json={"feed_url": payload.feed_url},
                 fetch_interval_seconds=payload.fetch_interval_seconds,
@@ -385,26 +510,8 @@ def create_app(
             session.refresh(row)
             source_data = SourceItem.model_validate(row)
 
-        async def fetch_now() -> FetchResult:
-            with factory() as fetch_session:
-                async with fetcher_factory() as fetcher:
-                    result = await IngestionPipeline(fetch_session, fetcher).fetch_source(source_id)
-                fetch_session.commit()
-                return result
-
-        result = asyncio.run(fetch_now())
-        return SourceAction(
-            id=source_data.id,
-            name=source_data.name,
-            slug=source_data.slug,
-            enabled=source_data.enabled,
-            source=source_data,
-            discovered=result.discovered,
-            inserted=result.inserted,
-            updated=result.updated,
-            ok=result.ok,
-            error=result.error,
-        )
+        result = scheduler.fetch_now_sync(source_id)
+        return _source_action(source_data, result)
 
     @app.post("/sources/discover")
     def discover_source(payload: SourceDiscover) -> dict[str, str]:
@@ -419,6 +526,10 @@ def create_app(
                 status_code=422,
                 detail="No RSS or Atom feed was advertised by this page",
             )
+        try:
+            feed_url = validate_source_url(feed_url)
+        except UnsafeUrlError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {"feed_url": feed_url, "name": payload.name or urlparse(payload.url).netloc}
 
     @app.post("/sources/html", response_model=SourceAction, status_code=201)
@@ -453,26 +564,8 @@ def create_app(
             session.commit()
             source_data = SourceItem.model_validate(row)
 
-        async def fetch_now() -> FetchResult:
-            with factory() as session:
-                async with fetcher_factory() as fetcher:
-                    result = await IngestionPipeline(session, fetcher).fetch_source(source_id)
-                session.commit()
-                return result
-
-        result = asyncio.run(fetch_now())
-        return SourceAction(
-            id=source_data.id,
-            name=source_data.name,
-            slug=source_data.slug,
-            enabled=source_data.enabled,
-            source=source_data,
-            discovered=result.discovered,
-            inserted=result.inserted,
-            updated=result.updated,
-            ok=result.ok,
-            error=result.error,
-        )
+        result = scheduler.fetch_now_sync(source_id)
+        return _source_action(source_data, result)
 
     @app.patch("/sources/{source_id}", response_model=SourceItem)
     def update_source(source_id: str, payload: SourceUpdate) -> SourceItem:
@@ -490,34 +583,16 @@ def create_app(
             session.refresh(row)
             return SourceItem.model_validate(row)
 
-    @app.post("/sources/{source_id}/fetch", response_model=SourceFetchAction)
-    def fetch_source_now(source_id: str) -> SourceFetchAction:
+    @app.post("/sources/{source_id}/fetch", response_model=SourceAction)
+    def fetch_source_now(source_id: str) -> SourceAction:
         with factory() as session:
             row = session.get(Source, source_id)
             if row is None:
                 raise HTTPException(status_code=404, detail="source not found")
             source_data = SourceItem.model_validate(row)
 
-        async def fetch_now() -> FetchResult:
-            with factory() as session:
-                async with fetcher_factory() as fetcher:
-                    result = await IngestionPipeline(session, fetcher).fetch_source(source_id)
-                session.commit()
-                return result
-
-        result = asyncio.run(fetch_now())
-        return SourceFetchAction(
-            id=source_data.id,
-            name=source_data.name,
-            slug=source_data.slug,
-            enabled=source_data.enabled,
-            source=source_data,
-            discovered=result.discovered,
-            inserted=result.inserted,
-            updated=result.updated,
-            ok=result.ok,
-            error=result.error,
-        )
+        result = scheduler.fetch_now_sync(source_id)
+        return _source_action(source_data, result)
 
     @app.get("/sources/{source_id}/runs", response_model=list[FetchRunItem])
     def source_runs(
@@ -551,7 +626,7 @@ def create_app(
                     "source_name": source_name,
                     "title": item.title,
                     "summary": item.summary,
-                    "content_html": item.content_html,
+                    "content_html": sanitize_html(item.content_html),
                     "content_text": item.content_text,
                     "canonical_url": item.canonical_url,
                     "author": item.author,
@@ -594,7 +669,7 @@ def create_app(
                         "content_type": row.content_type.value,
                         "title": row.title,
                         "summary": row.summary,
-                        "content_html": row.content_html,
+                        "content_html": sanitize_html(row.content_html),
                         "content_text": row.content_text,
                         "canonical_url": row.canonical_url,
                         "source_url": row.source_url,
@@ -618,90 +693,112 @@ def create_app(
 
     @app.post("/import/content", response_model=ImportResult)
     def import_content(payload: ImportRequest) -> ImportResult:
-        imported = 0
-        skipped = 0
-        errors: list[str] = []
         records = payload.articles if payload.articles is not None else payload.items
         if not records:
             raise HTTPException(status_code=422, detail="Import file contains no articles")
+        imported = 0
+        skipped = 0
+        errors: list[str] = []
+        # Backup ids are remapped when a URL already exists locally so the
+        # reading states in the same file still attach to the right row.
+        id_map: dict[str, str] = {}
         with factory() as session:
-            source_cache: dict[str, Source] = {}
-            for source_data in payload.sources or []:
-                source_id = str(source_data.get("id") or "")[:128]
-                if not source_id:
-                    continue
-                row = session.get(Source, source_id)
-                if row is None:
-                    row = Source(
-                        id=source_id,
-                        name=str(source_data.get("name") or source_id)[:200],
-                        slug=str(source_data.get("slug") or f"imported-{source_id}")[:200],
-                        provider_type=str(source_data.get("provider_type") or "import"),
-                        homepage_url=(
-                            str(source_data.get("homepage_url"))
-                            if source_data.get("homepage_url")
-                            else None
-                        ),
-                        enabled=bool(source_data.get("enabled", False)),
-                        config_json=(
-                            source_data.get("config_json")
-                            if isinstance(source_data.get("config_json"), dict)
-                            else {}
-                        ),
-                        fetch_interval_seconds=(
-                            int(value)
-                            if isinstance(
-                                value := source_data.get("fetch_interval_seconds"), (int, str)
+            try:
+                source_cache: dict[str, Source] = {}
+                for index, source_data in enumerate(payload.sources or []):
+                    try:
+                        source_id = source_data.id[:128]
+                        row = session.get(Source, source_id)
+                        if row is None:
+                            config = dict(source_data.config_json)
+                            if len(repr(config)) > 100_000:
+                                raise ValueError("config_json is too large")
+                            slug = (source_data.slug or f"imported-{source_id}")[:200]
+                            owner = session.scalar(select(Source.id).where(Source.slug == slug))
+                            if owner is not None and owner != source_id:
+                                suffix = hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:8]
+                                slug = f"{slug[:180]}-{suffix}"
+                            row = Source(
+                                id=source_id,
+                                name=(source_data.name or source_id)[:200],
+                                slug=slug,
+                                provider_type=source_data.provider_type or "import",
+                                homepage_url=source_data.homepage_url,
+                                # Backups must never restart automatic fetching.
+                                enabled=False,
+                                config_json=config,
+                                fetch_interval_seconds=source_data.fetch_interval_seconds,
                             )
-                            else 86400
-                        ),
-                    )
-                    session.add(row)
-                source_cache[source_id] = row
-            session.flush()
-            for index, record in enumerate(records):
-                try:
-                    source_id = str(record.get("source_id") or "imported")[:128]
-                    source = source_cache.get(source_id) or session.get(Source, source_id)
-                    if source is None:
-                        source = Source(
-                            id=source_id,
-                            name=str(record.get("source_name") or source_id)[:200],
-                            slug=f"imported-{source_id}",
-                            provider_type="import",
-                            enabled=False,
-                            config_json={},
-                            fetch_interval_seconds=86400,
-                        )
-                        session.add(source)
-                        session.flush()
-                    source_cache[source_id] = source
-                    canonical = str(record.get("canonical_url") or "").strip()
-                    title = str(record.get("title") or "").strip()
-                    if not canonical or not title:
-                        raise ValueError("title and canonical_url are required")
-                    repository = ContentRepository(session)
-                    if repository.get_by_url_hash(canonical):
+                            session.add(row)
+                        source_cache[source_id] = row
+                    except Exception as exc:
+                        errors.append(f"source {index + 1}: {exc}")
+                session.flush()
+
+                repository = ContentRepository(session)
+                for index, record in enumerate(records):
+                    try:
+                        source_id = (record.source_id or "imported")[:128]
+                        source = source_cache.get(source_id) or session.get(Source, source_id)
+                        if source is None:
+                            source = Source(
+                                id=source_id,
+                                name=(record.source_name or source_id)[:200],
+                                slug=f"imported-{source_id}",
+                                provider_type="import",
+                                enabled=False,
+                                config_json={},
+                                fetch_interval_seconds=86400,
+                            )
+                            session.add(source)
+                            session.flush()
+                        source_cache[source_id] = source
+                        canonical = record.canonical_url.strip()
+                        title = record.title.strip()
+                        if not canonical or not title:
+                            raise ValueError("title and canonical_url are required")
+                        original_id = record.id or ""
+                        existing = repository.get_by_url_hash(canonical_url_hash(canonical))
+                        if existing is not None:
+                            if original_id:
+                                id_map[original_id] = existing.id
+                            skipped += 1
+                            continue
+                        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:24]
+                        item_id = original_id or f"import-{digest}"
+                        restored: dict[str, Any] = dict(record.model_dump(exclude_none=True))
+                        restored["id"] = item_id
+                        restored["source_id"] = source.id
+                        restored["title"] = title
+                        restored["canonical_url"] = canonical
+                        stored = repository.restore(restored)
+                        id_map[original_id or item_id] = stored.id
+                        if stored.id == item_id:
+                            imported += 1
+                        else:
+                            skipped += 1
+                    except Exception as exc:
                         skipped += 1
+                        errors.append(f"item {index + 1}: {exc}")
+                session.commit()
+                for state_data in payload.reading_states or []:
+                    content_id = id_map.get(state_data.content_id, state_data.content_id)
+                    if not content_id or session.get(ContentItem, content_id) is None:
                         continue
-                    restored = dict(record)
-                    restored["source_id"] = source.id
-                    restored.setdefault("id", f"import-{index}-{abs(hash(canonical))}")
-                    repository.restore(restored)
-                    imported += 1
-                except Exception as exc:
-                    skipped += 1
-                    errors.append(f"item {index + 1}: {exc}")
-            session.commit()
-            for state_data in payload.reading_states or []:
-                content_id = str(state_data.get("content_id") or "")
-                if not content_id or session.get(ContentItem, content_id) is None:
-                    continue
-                state = session.get(ReadingState, content_id) or ReadingState(content_id=content_id)
-                state.is_read = bool(state_data.get("is_read", False))
-                state.saved = bool(state_data.get("saved", False))
-                session.add(state)
-            session.commit()
+                    state = session.get(ReadingState, content_id) or ReadingState(
+                        content_id=content_id
+                    )
+                    state.is_read = state_data.is_read
+                    state.saved = state_data.saved
+                    session.add(state)
+                session.commit()
+            except Exception as exc:
+                session.rollback()
+                return ImportResult(
+                    imported=0,
+                    skipped=len(records),
+                    errors=[f"import aborted: {exc}"][:50],
+                )
         return ImportResult(imported=imported, skipped=skipped, errors=errors[:50])
 
     @app.delete("/sources/{source_id}", status_code=204)
@@ -712,6 +809,17 @@ def create_app(
                 raise HTTPException(status_code=404, detail="source not found")
             if not source_id.startswith("custom-"):
                 raise HTTPException(status_code=409, detail="built-in sources cannot be deleted")
+            # Old databases lack ON DELETE CASCADE, so remove children in the
+            # same transaction before deleting the parent.
+            session.execute(
+                delete(ReadingState).where(
+                    ReadingState.content_id.in_(
+                        select(ContentItem.id).where(ContentItem.source_id == source_id)
+                    )
+                )
+            )
+            session.execute(delete(FetchRun).where(FetchRun.source_id == source_id))
+            session.execute(delete(ContentItem).where(ContentItem.source_id == source_id))
             session.delete(row)
             session.commit()
 
@@ -768,9 +876,9 @@ def create_app(
                 author=item.author,
                 published_at=item.published_at,
                 canonical_url=item.canonical_url,
-                content_html=item.content_html,
+                content_html=sanitize_html(item.content_html),
                 content_text=item.content_text,
-                source_url=item.source_url,
+                source_url=safe_http_url(item.source_url) or None,
                 is_read=bool(state_row and state_row.is_read),
                 saved=bool(state_row and state_row.saved),
                 read_at=state_row.read_at if state_row else None,

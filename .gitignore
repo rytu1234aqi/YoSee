@@ -7,9 +7,11 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 
-# Build outputs
-dist/
-build/
+# Build outputs (anchored: unanchored build/ used to swallow hand-written
+# verification scripts under desktop/build/)
+/dist/
+/build/
+/desktop/build/
 /releases/
 
 # Local environment settings (keep shareable examples)
@@ -27,7 +29,7 @@ build/
 *.db
 *.db-wal
 *.db-shm
-data/
+/data/
 *.log
 
 # OS metadata
@@ -40,3 +42,13 @@ desktop/node_modules/
 desktop/src-tauri/target/
 desktop/src-tauri/runtime/
 /desktop/src-tauri/gen/schemas/
+
+# Android build and sync artifacts
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/src/main/python/server/
+android/app/src/main/python/web/
+android/app/src/main/python/configs/
+android/app/src/main/python/alembic.ini
+android/scripts/.tooling-venv/

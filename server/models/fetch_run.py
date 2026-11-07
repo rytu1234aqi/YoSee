@@ -28,7 +28,9 @@ class FetchRun(Base):
     __tablename__ = "fetch_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    source_id: Mapped[str] = mapped_column(ForeignKey("sources.id"), nullable=False, index=True)
+    source_id: Mapped[str] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[FetchStatus] = mapped_column(

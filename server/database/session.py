@@ -24,10 +24,16 @@ def get_database_url() -> str:
 
 
 def _enable_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:
+    """Per-connection pragmas only.
+
+    ``journal_mode=WAL`` is a database-level setting that needs an exclusive
+    lock to switch; running it on every connect amplified write contention.
+    It is applied once in :func:`create_db_engine` instead.
+    """
+
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA busy_timeout=30000")
     cursor.close()
 
 
@@ -54,6 +60,9 @@ def create_db_engine(url: str, *, poolclass: type[Pool] | None = None) -> Engine
     engine = create_engine(url, **kwargs)
     if engine.dialect.name == "sqlite":
         event.listen(engine, "connect", _enable_sqlite_pragmas)
+        if url not in _MEMORY_URLS:
+            with engine.connect() as connection:
+                connection.exec_driver_sql("PRAGMA journal_mode=WAL")
     return engine
 
 

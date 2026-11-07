@@ -27,8 +27,14 @@ let syncRequest;
 let syncGeneration = 0;
 const feed = new FeedStore(api, renderFeed);
 
+const localToken = document.querySelector('meta[name="local-token"]')?.content || "";
+function withToken(headers = {}) {
+  return localToken ? { ...headers, "X-Local-Token": localToken } : headers;
+}
+
 async function api(path, options = {}) {
-  const response = await fetch(path, { cache: "no-store", ...options });
+  const headers = withToken(options.headers || {});
+  const response = await fetch(path, { cache: "no-store", ...options, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(typeof body.detail === "string" ? body.detail : `Request failed (${response.status}). Please retry.`);
@@ -333,12 +339,12 @@ document.addEventListener("keydown", (event) => {
 $("import").addEventListener("click", () => $("import-file").click());
 $("backup").addEventListener("click", async () => {
   try {
-    const response = await fetch("/backup", { cache: "no-store" });
+    const response = await fetch("/backup", { cache: "no-store", headers: withToken() });
     if (!response.ok) throw new Error("Backup failed");
     const blob = new Blob([JSON.stringify(await response.json(), null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `gamedev-feed-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `youdekan-backup-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (error) { window.alert(error.message); }
