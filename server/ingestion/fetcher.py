@@ -5,6 +5,7 @@ and attaches cache validators. It does not write the database.
 """
 
 import asyncio
+import os
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -26,6 +27,26 @@ MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 # separately so a refusal does not become three extra hits.
 _RETRYABLE_STATUS = frozenset({408, 425, 500, 502, 503, 504})
 _REDIRECT_STATUS = frozenset({301, 302, 303, 307, 308})
+_PROXY_ENV_KEYS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
+def _proxy_configured() -> bool:
+    """Whether httpx will hand the request to a proxy instead of resolving it.
+
+    With a proxy, local DNS answers are routing artifacts (some networks map
+    every hostname to a benchmark range such as 198.18/15). Pre-checking those
+    answers would reject legitimate public sites, so only literal-address
+    validation applies in that case.
+    """
+
+    return any(os.environ.get(key) for key in _PROXY_ENV_KEYS)
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,8 +103,9 @@ class Fetcher:
         self._sleep = sleep or _default_sleep
         self._monotonic = monotonic or _default_monotonic
         # A caller-supplied transport/client is used by tests and by offline
-        # replay; public-host checks only apply to real network requests.
-        self._check_public_host = transport is None and client is None
+        # replay. DNS pre-checks only apply when this client resolves and
+        # connects to the target directly (no injected transport, no proxy).
+        self._resolve_dns = transport is None and client is None and not _proxy_configured()
         self._sent = 0
         self._last_finished_at: float | None = None
 
@@ -145,10 +167,10 @@ class Fetcher:
         raise FetchError(f"GET {url} exceeded {MAX_REDIRECTS} redirects", url=url)
 
     def _assert_public(self, url: str) -> None:
-        if not self._check_public_host:
-            return
+        # Literal private addresses are always rejected, including on redirects.
+        # DNS resolution is only meaningful when this client dials the host itself.
         try:
-            validate_public_url(url, resolve_dns=True)
+            validate_public_url(url, resolve_dns=self._resolve_dns)
         except UnsafeUrlError as exc:
             raise FetchError(f"blocked URL target: {exc}", url=url) from exc
 

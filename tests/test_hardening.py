@@ -1,5 +1,6 @@
 """Regression tests for the P0/P1 hardening pass."""
 
+import socket
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from fastapi.testclient import TestClient
 from server.api import _source_id, create_app
 from server.database.base import Base
 from server.database.session import create_db_engine, create_session_factory
+from server.ingestion.errors import FetchError
 from server.ingestion.fetcher import Fetcher
 from server.models import ContentItem, ContentType, FetchRun, FetchStatus, ReadingState, Source
 from server.security import UnsafeUrlError, safe_http_url, sanitize_html, validate_public_url
@@ -226,6 +228,49 @@ def test_import_rejects_invalid_structure(tmp_path: Path) -> None:
         "articles": [{"id": "a", "title": "T", "canonical_url": "https://example.test/a"}],
     }
     assert client.post("/import/content", json=payload).status_code == 422
+
+
+def test_proxy_environment_does_not_reject_public_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Local DNS answers behind a proxy are routing artifacts, not targets."""
+
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:3128")
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.1.11", 443))
+        ],
+    )
+    fetcher = Fetcher()
+    assert fetcher._resolve_dns is False
+    fetcher._assert_public("https://www.redblobgames.com/feed.xml")
+    for blocked in (
+        "http://127.0.0.1:8765/backup",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://10.1.2.3/feed",
+    ):
+        with pytest.raises(FetchError):
+            fetcher._assert_public(blocked)
+
+
+def test_direct_connections_still_reject_rebound_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 443))
+        ],
+    )
+    fetcher = Fetcher()
+    assert fetcher._resolve_dns is True
+    with pytest.raises(FetchError, match="non-public"):
+        fetcher._assert_public("https://rebind.example/feed")
 
 
 def test_manual_fetch_runs_on_the_scheduler_loop(tmp_path: Path) -> None:
