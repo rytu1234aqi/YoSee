@@ -228,6 +228,41 @@ def test_index_versions_static_assets(tmp_path: Path) -> None:
     assert client.get(f"/static/app.css?v={version}", headers=local).status_code == 200
 
 
+def test_module_imports_are_versioned_too(tmp_path: Path) -> None:
+    """A cached .mjs without the new exports would abort the whole app.js module.
+
+    The HTML only versions app.css / app.js. app.js imports three sibling
+    modules with bare paths, so the server rewrites those imports at serve
+    time. Without this, a WebView reusing an old feed-store.mjs sees no
+    ``sortForStream`` export, the script never runs, and the page looks empty
+    with a frozen "Checking updates…" label.
+    """
+
+    url = f"sqlite:///{tmp_path / 'module-version.sqlite'}"
+    engine = create_db_engine(url)
+    Base.metadata.create_all(engine)
+    engine.dispose()
+    client = TestClient(create_web_app(url, auth_token="fixed-token"))
+    local = {"Host": "127.0.0.1:8765"}
+    html = client.get("/", headers=local).text
+    version = re.search(r"/static/app\.css\?v=([0-9a-f]{12})", html).group(1)
+
+    script = client.get(f"/static/app.js?v={version}", headers=local)
+    assert script.status_code == 200
+    assert script.headers["cache-control"] == "no-store"
+    assert script.headers["content-type"].split(";", 1)[0] == "text/javascript"
+    body = script.text
+    for module in ("feed-store.mjs", "article.mjs", "layout.mjs"):
+        assert f"/static/{module}?v={version}" in body
+        assert not re.search(rf"""["']/static/{re.escape(module)}["']""", body)
+        fetched = client.get(f"/static/{module}?v={version}", headers=local)
+        assert fetched.status_code == 200
+        assert fetched.headers["cache-control"] == "no-store"
+    assert "sortForStream" in client.get(
+        f"/static/feed-store.mjs?v={version}", headers=local
+    ).text
+
+
 def test_asset_version_changes_with_file_contents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

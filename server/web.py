@@ -1,6 +1,7 @@
 """Serve the browser reader and its API from one local process."""
 
 import hashlib
+import re
 import secrets
 from html import escape
 from pathlib import Path
@@ -34,6 +35,27 @@ def asset_version() -> str:
         digest.update(path.relative_to(WEB_ROOT).as_posix().encode("utf-8"))
         digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
+
+
+# app.js imports its sibling modules with bare absolute paths. Versioning only
+# the HTML-level <link>/<script> leaves those imports stuck on URLs a WebView
+# may have cached forever; one missing export then aborts the whole module.
+MODULE_IMPORT = re.compile(r"""(["'])(/static/[A-Za-z0-9_.-]+\.mjs)(?:\?v=[^"']*)?\1""")
+
+
+def versioned_app_js(version: str) -> str:
+    """Give every module import the same content fingerprint as app.js itself.
+
+    The rewrite is idempotent (an existing ``?v=`` is replaced, not appended)
+    and happens in the response only: the file on disk stays plain, so
+    ``asset_version()`` remains stable between the HTML and the script.
+    """
+
+    source = (WEB_ROOT / "app.js").read_text(encoding="utf-8")
+    return MODULE_IMPORT.sub(
+        lambda match: f"{match.group(1)}{match.group(2)}?v={version}{match.group(1)}",
+        source,
+    )
 
 
 class WebStaticFiles(StaticFiles):
@@ -83,6 +105,16 @@ def create_web_app(
         auto_cleanup=auto_cleanup,
         cleanup_keep_recent=cleanup_keep_recent,
     )
+    # Register before the /static mount so this exact path wins over the
+    # catch-all StaticFiles route.
+    @app.get("/static/app.js", include_in_schema=False)
+    def versioned_script() -> Response:
+        return Response(
+            versioned_app_js(asset_version()),
+            media_type="text/javascript",
+            headers={"Cache-Control": "no-store"},
+        )
+
     app.mount("/static", WebStaticFiles(directory=WEB_ROOT), name="static")
 
     @app.get("/", include_in_schema=False)

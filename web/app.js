@@ -1,3 +1,7 @@
+// The three bare module paths below are rewritten by server/web.py at serve
+// time with the same content fingerprint as app.js itself. Keeping the source
+// plain lets asset_version() stay stable, while the browser always requests
+// URLs a stale WebView cache has never seen.
 import { FeedStore, sortForStream, hideDismissed, filterByTag } from "/static/feed-store.mjs";
 import { articleFragment, safeUrl, summaryText } from "/static/article.mjs";
 import { initResizableLayout } from "/static/layout.mjs";
