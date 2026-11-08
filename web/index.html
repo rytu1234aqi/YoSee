@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="local-token" content="__LOCAL_TOKEN__" />
     <title>有得看</title>
-    <link rel="stylesheet" href="/static/app.css" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/static/app.css?v=__ASSET_VERSION__" />
   </head>
   <body>
     <header class="topbar">
@@ -16,6 +17,7 @@
       <button id="backup" class="icon-button" title="完整备份" aria-label="完整备份">⤓</button>
       <button id="theme" class="icon-button" title="切换深色模式" aria-label="切换深色模式">◐</button>
       <button id="language" class="language-button" title="切换语言" aria-label="切换语言">EN</button>
+      <span id="debug-info" class="debug-info" hidden></span>
     </header>
     <main class="layout">
       <aside class="sidebar" id="sidebar">
@@ -30,6 +32,7 @@
         <button id="add-source" class="add-source" data-i18n="addSource">+ 添加来源</button>
         <p id="sync-status" class="sync-status" role="status">正在检查更新…</p>
       </aside>
+      <div class="sash" data-sash="sidebar" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-aria-label="resizeSidebar" data-i18n-title="resizeSidebar" aria-label="拖动调整资料库宽度，双击恢复默认" title="拖动调整资料库宽度，双击恢复默认"></div>
       <section class="feed-pane">
         <div class="pane-heading"><h1 id="feed-title">最新文章</h1><span id="count"></span></div>
         <button id="updates" class="updates" hidden>有新内容 · 刷新</button>
@@ -40,6 +43,7 @@
           <button id="load-more" hidden>加载更多</button>
         </div>
       </section>
+      <div class="sash" data-sash="feed" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-aria-label="resizeFeed" data-i18n-title="resizeFeed" aria-label="拖动调整文章列表宽度，双击恢复默认" title="拖动调整文章列表宽度，双击恢复默认"></div>
       <article class="detail-pane" id="detail">
         <div class="empty">Select an article to read</div>
       </article>
@@ -78,6 +82,6 @@
       <div id="runs-list"><p class="empty">Loading history…</p></div>
     </dialog>
     <input id="import-file" type="file" accept="application/json,.json" hidden />
-    <script type="module" src="/static/app.js"></script>
+    <script type="module" src="/static/app.js?v=__ASSET_VERSION__"></script>
   </body>
 </html>

@@ -1,11 +1,12 @@
 import { FeedStore } from "/static/feed-store.mjs";
 import { articleFragment, safeUrl, summaryText } from "/static/article.mjs";
+import { initResizableLayout } from "/static/layout.mjs";
 
 const $ = (id) => document.getElementById(id);
 const state = { source: "", query: "", selected: null, status: "all", article: null };
 const translations = {
-  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "稍后阅读", unsave: "取消收藏", original: "打开原文 ↗" },
-  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save for later", unsave: "Remove saved", original: "Open original ↗" },
+  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "稍后阅读", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认" },
+  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save for later", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset" },
 };
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
@@ -13,6 +14,8 @@ function applyLanguage() {
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   document.querySelectorAll("[data-i18n]").forEach((node) => { node.textContent = t(node.dataset.i18n); });
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => { node.placeholder = t(node.dataset.i18nPlaceholder); });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => { node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel)); });
+  document.querySelectorAll("[data-i18n-title]").forEach((node) => { node.title = t(node.dataset.i18nTitle); });
   $("language").textContent = language === "zh" ? "EN" : "中";
   $("sync-status").textContent = language === "zh" ? "正在检查更新…" : "Checking updates…";
   renderFeed();
@@ -373,5 +376,38 @@ document.addEventListener("visibilitychange", () => {
 loadSources();
 setupSourceDialog();
 applyLanguage();
+initResizableLayout();
 // Record the update revision before loading the first page.
 pollSync().then(resetFeed);
+
+// ?debug=1 shows the live viewport/grid geometry and records it in the server
+// access log. Embedded preview panels can be much narrower than the desktop
+// window, so this makes layout diagnosis possible without copying numbers out
+// of the UI by hand.
+if (new URLSearchParams(window.location.search).has("debug")) {
+  const node = $("debug-info");
+  const grid = document.querySelector(".layout");
+  const detail = document.querySelector(".detail-pane");
+  const feed = document.querySelector(".feed-pane");
+  node.hidden = false;
+  const report = () => {
+    const columns = getComputedStyle(grid).gridTemplateColumns;
+    const detailY = Math.round(detail.getBoundingClientRect().top);
+    const feedY = Math.round(feed.getBoundingClientRect().top);
+    const info = {
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: window.devicePixelRatio || 1,
+      cols: columns.replaceAll(" ", "_"),
+      detailY,
+      feedY,
+      scrollW: document.body.scrollWidth,
+      inline: (grid.getAttribute("style") || "-").replaceAll(" ", "_"),
+    };
+    node.textContent = `${info.w}px · ${columns} · ${detailY === feedY ? "三栏同排" : "详情换行"}`;
+    // /health is public, so the query string lands in the uvicorn access log.
+    fetch(`/health?${new URLSearchParams(info)}`, { cache: "no-store" }).catch(() => {});
+  };
+  window.addEventListener("resize", report);
+  report();
+}

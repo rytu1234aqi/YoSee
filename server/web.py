@@ -1,5 +1,6 @@
 """Serve the browser reader and its API from one local process."""
 
+import hashlib
 import secrets
 from html import escape
 from pathlib import Path
@@ -13,6 +14,26 @@ from server.api import create_app
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
 TOKEN_PLACEHOLDER = "__LOCAL_TOKEN__"
+ASSET_VERSION_PLACEHOLDER = "__ASSET_VERSION__"
+
+
+def asset_version() -> str:
+    """Fingerprint the shipped assets so an embedded WebView cannot reuse them.
+
+    ``Cache-Control: no-store`` only affects responses the client actually
+    fetches. WebViews that already cached ``/static/app.css`` keep serving that
+    copy forever without a request, so a changed stylesheet silently leaves
+    newer markup laid out by older CSS. A content-derived query string gives
+    every asset change a URL the cache has never seen.
+    """
+
+    digest = hashlib.sha256()
+    for path in sorted(WEB_ROOT.rglob("*")):
+        if not path.is_file() or path.name == "index.html":
+            continue
+        digest.update(path.relative_to(WEB_ROOT).as_posix().encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
 
 
 class WebStaticFiles(StaticFiles):
@@ -20,6 +41,9 @@ class WebStaticFiles(StaticFiles):
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         response = await super().get_response(path, scope)
+        # Embedded WebViews cache aggressively. These files are local, so always
+        # serve the current copy instead of letting a stale CSS/JS survive a reload.
+        response.headers["cache-control"] = "no-store"
         media_type = {
             ".js": "text/javascript; charset=utf-8",
             ".mjs": "text/javascript; charset=utf-8",
@@ -56,7 +80,9 @@ def create_web_app(
     @app.get("/", include_in_schema=False)
     def index() -> HTMLResponse:
         markup = (WEB_ROOT / "index.html").read_text(encoding="utf-8")
-        return HTMLResponse(markup.replace(TOKEN_PLACEHOLDER, escape(token, quote=True)))
+        markup = markup.replace(TOKEN_PLACEHOLDER, escape(token, quote=True))
+        markup = markup.replace(ASSET_VERSION_PLACEHOLDER, asset_version())
+        return HTMLResponse(markup, headers={"Cache-Control": "no-store"})
 
     return app
 

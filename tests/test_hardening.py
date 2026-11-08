@@ -1,5 +1,6 @@
 """Regression tests for the P0/P1 hardening pass."""
 
+import re
 import socket
 from datetime import UTC, datetime
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from server import web as web_module
 from server.api import _source_id, create_app
 from server.database.base import Base
 from server.database.session import create_db_engine, create_session_factory
@@ -192,6 +194,48 @@ def test_web_shell_injects_the_token(tmp_path: Path) -> None:
         client.get("/sources", headers={**local, "X-Local-Token": "fixed-token"}).status_code
         == 200
     )
+
+
+def test_web_shell_disables_caching(tmp_path: Path) -> None:
+    """Embedded WebViews must not keep a stale CSS/JS after a backend change."""
+
+    url = f"sqlite:///{tmp_path / 'no-store.sqlite'}"
+    engine = create_db_engine(url)
+    Base.metadata.create_all(engine)
+    engine.dispose()
+    client = TestClient(create_web_app(url, auth_token="fixed-token"))
+    local = {"Host": "127.0.0.1:8765"}
+    assert client.get("/", headers=local).headers["cache-control"] == "no-store"
+    assert client.get("/static/app.css", headers=local).headers["cache-control"] == "no-store"
+    assert client.get("/static/app.js", headers=local).headers["cache-control"] == "no-store"
+
+
+def test_index_versions_static_assets(tmp_path: Path) -> None:
+    """The shell must reference fresh URLs, not the ones a WebView cached earlier."""
+
+    url = f"sqlite:///{tmp_path / 'asset-version.sqlite'}"
+    engine = create_db_engine(url)
+    Base.metadata.create_all(engine)
+    engine.dispose()
+    client = TestClient(create_web_app(url, auth_token="fixed-token"))
+    local = {"Host": "127.0.0.1:8765"}
+    html = client.get("/", headers=local).text
+    match = re.search(r"/static/app\.css\?v=([0-9a-f]{12})", html)
+    assert match, html[:400]
+    version = match.group(1)
+    assert f'src="/static/app.js?v={version}"' in html
+    assert "__ASSET_VERSION__" not in html
+    assert client.get(f"/static/app.css?v={version}", headers=local).status_code == 200
+
+
+def test_asset_version_changes_with_file_contents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(web_module, "WEB_ROOT", tmp_path)
+    (tmp_path / "app.css").write_text("body { color: red }", encoding="utf-8")
+    before = web_module.asset_version()
+    (tmp_path / "app.css").write_text("body { color: blue }", encoding="utf-8")
+    assert web_module.asset_version() != before
 
 
 def test_sanitizer_drops_whole_dangerous_subtrees() -> None:

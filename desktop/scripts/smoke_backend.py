@@ -77,7 +77,11 @@ with tempfile.TemporaryDirectory(prefix="youdekan-smoke-") as directory:
                 elif path.endswith(".css"):
                     assert "text/css" in headers["Content-Type"], (path, headers)
                 assert content.strip()
-            for path in ("/static/feed-store.mjs", "/static/article.mjs"):
+            for path in (
+                "/static/feed-store.mjs",
+                "/static/article.mjs",
+                "/static/layout.mjs",
+            ):
                 assert "javascript" in get(path)[0]["Content-Type"]
             assert len(json.loads(api_get("/sources")[1])) > 0
             items = json.loads(api_get("/feed/page")[1])["items"]

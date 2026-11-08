@@ -113,7 +113,7 @@ try:
         assert db.execute('SELECT count(*) FROM content_items').fetchone()[0] >= expected
     with urllib.request.urlopen(url + '/feed/page', timeout=5) as response:
         assert len(json.load(response)['items']) > 0
-    for module in ('app.js', 'feed-store.mjs', 'article.mjs'):
+    for module in ('app.js', 'feed-store.mjs', 'article.mjs', 'layout.mjs'):
         with urllib.request.urlopen(url + '/static/' + module, timeout=5) as response:
             assert 'javascript' in response.headers['content-type']
     print(

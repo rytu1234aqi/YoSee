@@ -28,7 +28,7 @@ def test_launcher_initializes_sources_and_serves_client(
             client.headers.update({"X-Local-Token": app.state.local_token})
             assert client.get("/").status_code == 200
             assert "load-more" in client.get("/").text
-            for asset in ("app.js", "app.css", "feed-store.mjs", "article.mjs"):
+            for asset in ("app.js", "app.css", "feed-store.mjs", "article.mjs", "layout.mjs"):
                 response = client.get(f"/static/{asset}")
                 assert response.status_code == 200
                 expected_type = "text/css" if asset.endswith(".css") else "text/javascript"
