@@ -11,6 +11,11 @@
   <body>
     <header class="topbar">
       <div class="brand" data-i18n="brand">有得看</div>
+      <nav class="view-switch" id="view-switch" aria-label="视图">
+        <button class="view-button active" data-view="stream" data-i18n="viewStream">刷流</button>
+        <button class="view-button" data-view="saved" data-i18n="viewSaved">收藏夹</button>
+        <button class="view-button" data-view="library" data-i18n="viewLibrary">资料库</button>
+      </nav>
       <label class="search"><span class="sr-only" data-i18n="search">搜索</span><input id="query" data-i18n-placeholder="searchPlaceholder" placeholder="搜索文章" /></label>
       <button id="refresh" class="icon-button" title="刷新文章" aria-label="刷新文章">↻</button>
       <button id="import" class="icon-button" title="导入文章" aria-label="导入文章">⇧</button>
@@ -32,10 +37,17 @@
         <button id="add-source" class="add-source" data-i18n="addSource">+ 添加来源</button>
         <p id="sync-status" class="sync-status" role="status">正在检查更新…</p>
         <p id="backup-status" class="backup-status" role="status"></p>
+        <p id="cleanup-status" class="backup-status" role="status"></p>
       </aside>
       <div class="sash" data-sash="sidebar" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-aria-label="resizeSidebar" data-i18n-title="resizeSidebar" aria-label="拖动调整资料库宽度，双击恢复默认" title="拖动调整资料库宽度，双击恢复默认"></div>
       <section class="feed-pane">
         <div class="pane-heading"><h1 id="feed-title">最新文章</h1><span id="count"></span></div>
+        <div id="saved-filters" class="saved-filters" hidden>
+          <button class="tag-filter active" data-tag="" data-i18n="allTags">全部</button>
+          <button class="tag-filter" data-tag="like" data-i18n="tagLike">喜欢</button>
+          <button class="tag-filter" data-tag="later" data-i18n="tagLater">回头再看</button>
+          <button id="export-saved" class="text-button" data-i18n="exportLinks">导出链接清单</button>
+        </div>
         <button id="updates" class="updates" hidden>有新内容 · 刷新</button>
         <div id="feed" class="feed"></div>
         <div class="feed-footer">
@@ -63,6 +75,8 @@
           <label>Link CSS selector<input name="link_selector" placeholder="h2 a" /></label>
           <label>Summary CSS selector (optional)<input name="summary_selector" placeholder=".excerpt" /></label>
         </div>
+        <label><span data-i18n="keywordsLabel">只要包含这些词</span><input name="keywords" placeholder="shader, rendering（留空表示都要）" /></label>
+        <p class="form-note" data-i18n="keywordsHint">用逗号分开。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。</p>
         <p class="form-note">You can pause or edit a source after adding it from its source settings.</p>
         <div class="dialog-actions"><button value="cancel">Cancel</button><button id="source-submit" value="default">Add and fetch</button></div>
       </form>
@@ -74,6 +88,8 @@
         <label>Name<input name="name" required maxlength="200" /></label>
         <label>Check every (minutes)<input name="interval" type="number" min="5" max="43200" required /></label>
         <label class="check-row"><input name="enabled" type="checkbox" /> Automatic updates enabled</label>
+        <label><span data-i18n="keywordsLabel">只要包含这些词</span><input name="keywords" placeholder="shader, rendering（留空表示都要）" /></label>
+        <p class="form-note" data-i18n="keywordsHint">用逗号分开。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。</p>
         <p id="settings-form-error" class="error" role="alert" hidden></p>
         <div class="dialog-actions"><button value="cancel">Cancel</button><button id="settings-submit" value="default">Save</button></div>
       </form>
@@ -81,6 +97,10 @@
     <dialog id="runs-dialog">
       <div class="runs-head"><h2 id="runs-title">Fetch history</h2><button id="runs-close" class="icon-button dark" aria-label="Close">×</button></div>
       <div id="runs-list"><p class="empty">Loading history…</p></div>
+    </dialog>
+    <dialog id="reader-dialog" class="reader-dialog">
+      <div class="reader-head"><span data-i18n="readerTitle">读文章</span><button id="reader-close" class="icon-button dark" aria-label="Close">×</button></div>
+      <article id="reader-body" class="reader-body"></article>
     </dialog>
     <input id="import-file" type="file" accept="application/json,.json" hidden />
     <script type="module" src="/static/app.js?v=__ASSET_VERSION__"></script>

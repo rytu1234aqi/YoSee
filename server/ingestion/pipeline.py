@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from server.ingestion.dedup import canonical_url_hash
 from server.ingestion.errors import IngestionError
 from server.ingestion.fetcher import Fetcher
+from server.ingestion.keyword_filter import filter_items, source_keywords
 from server.ingestion.normalizer import NormalizedContentItem
 from server.ingestion.providers import build_provider
 from server.models.fetch_run import FetchRun, FetchStatus
@@ -85,10 +86,14 @@ class IngestionPipeline:
 
         try:
             provider = build_provider(source.provider_type, self._fetcher, source_id=source.id)
-            items, skipped, page = await provider.collect(source)
+            raw_items, base_skipped, page = await provider.collect(source)
         except IngestionError as exc:
             logger.warning("fetch %s failed: %s", source.id, exc)
             return self._fail(source, run, datetime.now(UTC), exc)
+
+        keywords = source_keywords(source)
+        items, filtered_count = filter_items(raw_items, keywords)
+        skipped = base_skipped + filtered_count
 
         cap = _item_cap(source)
         if cap is not None and len(items) > cap:
@@ -109,7 +114,15 @@ class IngestionPipeline:
                 inserted += 1
             self._content.upsert(item, fetched_at=started)
         _store_validators(source, page.etag, page.last_modified)
-        return self._succeed(source, run, datetime.now(UTC), len(items), inserted, updated, skipped)
+        # Keep the pre-existing meaning of ``discovered``: the number of items
+        # that made it through the per-run cap. Keyword-filtered entries are
+        # added back because they were still examined, and are also reported
+        # through ``skipped``. Changing this to the raw provider count would
+        # silently rewrite the fetch-history numbers for capped sources.
+        discovered = len(items) + filtered_count
+        return self._succeed(
+            source, run, datetime.now(UTC), discovered, inserted, updated, skipped
+        )
 
     def _already_stored(self, item: NormalizedContentItem) -> bool:
         external_id = item.external_id

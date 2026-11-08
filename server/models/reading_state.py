@@ -24,6 +24,9 @@ class ReadingState(Base):
     saved: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False
     )
+    # "like" (enjoyed) or "later" (read again). NULL means the item is saved
+    # without a sub-label, which is how older backups import.
+    tag: Mapped[str | None] = mapped_column(String(16))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     saved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[datetime] = mapped_column(

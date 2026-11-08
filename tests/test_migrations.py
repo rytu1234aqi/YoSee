@@ -18,7 +18,11 @@ def test_upgrade_creates_core_tables(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     engine = create_db_engine(url)
     try:
-        names = set(inspect(engine).get_table_names())
+        inspector = inspect(engine)
+        names = set(inspector.get_table_names())
+        reading_state_columns = {
+            column["name"] for column in inspector.get_columns("reading_states")
+        }
     finally:
         engine.dispose()
     assert names == {
@@ -28,3 +32,6 @@ def test_upgrade_creates_core_tables(tmp_path: Path, monkeypatch: pytest.MonkeyP
         "reading_states",
         "sources",
     }
+    # The newest migration adds the collection sub-label without recreating
+    # the table, so existing rows and older backups stay valid.
+    assert "tag" in reading_state_columns

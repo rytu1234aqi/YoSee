@@ -46,7 +46,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--backup-dir", type=Path, default=None, help="override the daily backup folder"
     )
+    parser.add_argument(
+        "--no-auto-cleanup", action="store_true", help="keep every seen link forever"
+    )
+    parser.add_argument(
+        "--cleanup-keep",
+        type=int,
+        default=200,
+        help="always keep this many newest links (default: 200)",
+    )
     args = parser.parse_args(argv)
+    if not 50 <= args.cleanup_keep <= 100_000:
+        parser.error("--cleanup-keep must be between 50 and 100000")
     if not math.isfinite(args.poll_seconds) or args.poll_seconds <= 0:
         parser.error("--poll-seconds must be finite and positive")
     if not 1 <= args.port <= 65535:
@@ -72,6 +83,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         poll_seconds=args.poll_seconds,
         auto_backup=not args.no_auto_backup,
         backup_dir=args.backup_dir,
+        auto_cleanup=not args.no_auto_cleanup,
+        cleanup_keep_recent=args.cleanup_keep,
     )
     uvicorn.run(app, host=args.host, port=args.port, reload=False)
     return 0

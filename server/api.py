@@ -4,6 +4,7 @@ import asyncio
 import base64
 import binascii
 import hashlib
+import math
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -22,9 +23,11 @@ from starlette.responses import Response
 
 from server import __version__
 from server.backup import BackupManager, default_backup_dir
+from server.cleanup import CleanupManager
 from server.database.session import create_db_engine, create_session_factory, get_database_url
 from server.ingestion.dedup import canonical_url_hash
 from server.ingestion.fetcher import Fetcher
+from server.ingestion.keyword_filter import source_keywords as read_source_keywords
 from server.ingestion.pipeline import FetchResult
 from server.ingestion.scheduler import FetchScheduler
 from server.models import ContentItem, FetchRun, ReadingState, Source
@@ -65,6 +68,7 @@ class FeedItem(BaseModel):
     canonical_url: str
     is_read: bool = False
     saved: bool = False
+    tag: str | None = None
 
 
 class SourceItem(BaseModel):
@@ -81,6 +85,51 @@ class SourceItem(BaseModel):
     last_success_at: datetime | None = None
     consecutive_failures: int = 0
     last_error: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+    stale: bool = False
+    days_since_update: int | None = None
+
+
+# A source is only called "quiet" after it has been silent for at least a week,
+# and at least twice its own polling interval. A daily feed is not stale after
+# two days; a monthly digest is not stale after eight.
+STALE_FLOOR_DAYS = 7
+
+
+def _source_keywords(row: Source) -> list[str]:
+    """Show the UI exactly the same allowlist the ingestion pipeline uses."""
+
+    return read_source_keywords(row)
+
+
+def _days_since_update(row: Source, now: datetime) -> int | None:
+    stamp = row.last_success_at or row.last_fetched_at or row.created_at
+    if stamp is None:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    return max(0, (now - stamp).days)
+
+
+def _source_stale(row: Source, now: datetime) -> bool:
+    days = _days_since_update(row, now)
+    if days is None:
+        return False
+    quiet_days = max(
+        STALE_FLOOR_DAYS, math.ceil(row.fetch_interval_seconds * 2 / 86400)
+    )
+    return days >= quiet_days
+
+
+def _source_item(row: Source, now: datetime | None = None) -> SourceItem:
+    """Add the computed UI hints (keyword list, quiet-source flag)."""
+
+    moment = now or datetime.now(UTC)
+    item = SourceItem.model_validate(row)
+    item.keywords = _source_keywords(row)
+    item.days_since_update = _days_since_update(row, moment)
+    item.stale = _source_stale(row, moment)
+    return item
 
 
 def _clean_name(value: str) -> str:
@@ -97,14 +146,27 @@ def _clean_url(value: str) -> str:
         raise ValueError(str(exc)) from exc
 
 
+def _clean_keywords(values: list[str]) -> list[str]:
+    """One canonical lowercase list, shared by create and edit paths."""
+
+    cleaned: list[str] = []
+    for value in values:
+        word = value.strip().lower()
+        if word and word not in cleaned:
+            cleaned.append(word)
+    return cleaned[:20]
+
+
 class SourceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     feed_url: str = Field(min_length=1, max_length=2048)
     fetch_interval_seconds: int = Field(default=21600, ge=300, le=2592000)
+    keywords: list[str] = Field(default_factory=list, max_length=20)
 
     def model_post_init(self, __context: object) -> None:
         self.name = _clean_name(self.name)
         self.feed_url = _clean_url(self.feed_url)
+        self.keywords = _clean_keywords(self.keywords)
 
 
 class SourceDiscover(BaseModel):
@@ -125,20 +187,25 @@ class HtmlSourceCreate(BaseModel):
     link_selector: str = Field(min_length=1, max_length=300)
     summary_selector: str | None = Field(default=None, max_length=300)
     fetch_interval_seconds: int = Field(default=21600, ge=300, le=2592000)
+    keywords: list[str] = Field(default_factory=list, max_length=20)
 
     def model_post_init(self, __context: object) -> None:
         self.url = _clean_url(self.url)
         self.name = _clean_name(self.name)
+        self.keywords = _clean_keywords(self.keywords)
 
 
 class SourceUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     enabled: bool | None = None
     fetch_interval_seconds: int | None = Field(default=None, ge=300, le=2592000)
+    keywords: list[str] | None = Field(default=None, max_length=20)
 
     def model_post_init(self, __context: object) -> None:
         if self.name is not None:
             self.name = _clean_name(self.name)
+        if self.keywords is not None:
+            self.keywords = _clean_keywords(self.keywords)
 
 
 class SourceAction(BaseModel):
@@ -210,6 +277,7 @@ class ImportState(BaseModel):
     content_id: str = Field(min_length=1, max_length=36)
     is_read: bool = False
     saved: bool = False
+    tag: str | None = Field(default=None, pattern="^(like|later)$")
 
 
 class ImportRequest(BaseModel):
@@ -290,6 +358,9 @@ class ArticleItem(FeedItem):
 class StateUpdate(BaseModel):
     is_read: bool | None = None
     saved: bool | None = None
+    # "none" is the explicit way to clear a sub-label; JSON null means "leave
+    # the tag alone" so callers can change is_read without touching it.
+    tag: str | None = Field(default=None, pattern="^(like|later|none)$")
 
 
 class FeedPage(BaseModel):
@@ -338,6 +409,29 @@ class BackupRunResult(BaseModel):
     error: str | None = None
 
 
+class SavedLink(BaseModel):
+    title: str
+    url: str
+    source_name: str
+    tag: str | None = None
+    published_at: str | None = None
+
+
+class CleanupStatus(BaseModel):
+    enabled: bool
+    keep_recent: int
+    min_age_days: int
+    last_run_at: datetime | None = None
+    last_deleted: int = 0
+    last_error: str | None = None
+
+
+class CleanupRunResult(BaseModel):
+    ok: bool
+    deleted: int = 0
+    error: str | None = None
+
+
 def _read_feed(
     session: Session,
     *,
@@ -349,7 +443,13 @@ def _read_feed(
     cursor: FeedCursor | None = None,
 ) -> list[FeedItem]:
     statement = (
-        select(ContentItem, Source.name, ReadingState.is_read, ReadingState.saved)
+        select(
+            ContentItem,
+            Source.name,
+            ReadingState.is_read,
+            ReadingState.saved,
+            ReadingState.tag,
+        )
         .join(Source, Source.id == ContentItem.source_id)
         .outerjoin(ReadingState, ReadingState.content_id == ContentItem.id)
         .order_by(ContentItem.published_at.desc().nulls_last(), ContentItem.id.desc())
@@ -403,8 +503,9 @@ def _read_feed(
             canonical_url=item.canonical_url,
             is_read=bool(is_read),
             saved=bool(saved),
+            tag=tag,
         )
-        for item, source_name, is_read, saved in session.execute(statement)
+        for item, source_name, is_read, saved, tag in session.execute(statement)
     ]
 
 
@@ -417,6 +518,8 @@ def create_app(
     auth_token: str | None = None,
     auto_backup: bool = False,
     backup_dir: Path | None = None,
+    auto_cleanup: bool = False,
+    cleanup_keep_recent: int = 200,
 ) -> FastAPI:
     """Create an API instance; ``database_url`` is injectable for tests.
 
@@ -434,15 +537,22 @@ def create_app(
         resolved_backup_dir or Path("data/backups"),
         enabled=auto_backup and resolved_backup_dir is not None,
     )
+    cleanup_manager = CleanupManager(
+        factory, enabled=auto_cleanup, keep_recent=cleanup_keep_recent
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if auto_fetch:
             scheduler.start()
+        # Backups start before cleanup so a long-running session always has a
+        # snapshot of today before any old link is pruned.
         backup_manager.start()
+        cleanup_manager.start()
         try:
             yield
         finally:
+            cleanup_manager.stop()
             backup_manager.stop()
             await scheduler.stop()
             engine.dispose()
@@ -499,6 +609,45 @@ def create_app(
             error=None if ok else (backup_manager.last_error or "backup disabled"),
         )
 
+    @app.get("/cleanup/status", response_model=CleanupStatus)
+    def cleanup_status() -> CleanupStatus:
+        return CleanupStatus.model_validate(cleanup_manager.status())
+
+    @app.post("/cleanup/run", response_model=CleanupRunResult)
+    def cleanup_run() -> CleanupRunResult:
+        ok = cleanup_manager.run_once()
+        status = cleanup_manager.status()
+        return CleanupRunResult(
+            ok=ok,
+            deleted=int(status["last_deleted"]) if ok else 0,
+            error=None if ok else (status["last_error"] or "cleanup disabled"),
+        )
+
+    @app.get("/export/saved-links", response_model=list[SavedLink])
+    def export_saved_links() -> list[SavedLink]:
+        """A plain link list for the collection page, without article bodies."""
+
+        with factory() as session:
+            rows = session.execute(
+                select(ContentItem, Source.name, ReadingState.tag)
+                .join(Source, Source.id == ContentItem.source_id)
+                .join(ReadingState, ReadingState.content_id == ContentItem.id)
+                .where(ReadingState.saved.is_(True))
+                .order_by(ContentItem.published_at.desc().nulls_last(), ContentItem.id.desc())
+            ).all()
+            return [
+                SavedLink(
+                    title=item.title,
+                    url=item.canonical_url,
+                    source_name=source_name,
+                    tag=tag,
+                    published_at=item.published_at.isoformat()
+                    if item.published_at
+                    else None,
+                )
+                for item, source_name, tag in rows
+            ]
+
     @app.get("/sync/status", response_model=SyncStatus)
     def sync_status() -> SyncStatus:
         with factory() as session:
@@ -527,7 +676,7 @@ def create_app(
     def sources() -> list[SourceItem]:
         with factory() as session:
             rows = session.scalars(select(Source).order_by(Source.name)).all()
-            return [SourceItem.model_validate(row) for row in rows]
+            return [_source_item(row) for row in rows]
 
     @app.post("/sources", response_model=SourceAction, status_code=201)
     def create_source(payload: SourceCreate) -> SourceAction:
@@ -543,13 +692,13 @@ def create_app(
                 provider_type="rss",
                 homepage_url=f"{parsed.scheme}://{parsed.netloc}",
                 enabled=True,
-                config_json={"feed_url": payload.feed_url},
+                config_json={"feed_url": payload.feed_url, "keywords": payload.keywords},
                 fetch_interval_seconds=payload.fetch_interval_seconds,
             )
             session.add(row)
             session.commit()
             session.refresh(row)
-            source_data = SourceItem.model_validate(row)
+            source_data = _source_item(row)
 
         result = scheduler.fetch_now_sync(source_id)
         return _source_action(source_data, result)
@@ -588,6 +737,7 @@ def create_app(
             fields = config["fields"]
             assert isinstance(fields, dict)
             fields["summary"] = {"selector": payload.summary_selector}
+        config["keywords"] = payload.keywords
         with factory() as session:
             if session.get(Source, source_id) is not None:
                 raise HTTPException(status_code=409, detail="source already exists")
@@ -603,7 +753,7 @@ def create_app(
             )
             session.add(row)
             session.commit()
-            source_data = SourceItem.model_validate(row)
+            source_data = _source_item(row)
 
         result = scheduler.fetch_now_sync(source_id)
         return _source_action(source_data, result)
@@ -620,9 +770,14 @@ def create_app(
                 row.enabled = payload.enabled
             if payload.fetch_interval_seconds is not None:
                 row.fetch_interval_seconds = payload.fetch_interval_seconds
+            if payload.keywords is not None:
+                # JSON columns are not tracked for in-place mutation.
+                config = dict(row.config_json) if isinstance(row.config_json, dict) else {}
+                config["keywords"] = payload.keywords
+                row.config_json = config
             session.commit()
             session.refresh(row)
-            return SourceItem.model_validate(row)
+            return _source_item(row)
 
     @app.post("/sources/{source_id}/fetch", response_model=SourceAction)
     def fetch_source_now(source_id: str) -> SourceAction:
@@ -630,7 +785,7 @@ def create_app(
             row = session.get(Source, source_id)
             if row is None:
                 raise HTTPException(status_code=404, detail="source not found")
-            source_data = SourceItem.model_validate(row)
+            source_data = _source_item(row)
 
         result = scheduler.fetch_now_sync(source_id)
         return _source_action(source_data, result)
@@ -654,13 +809,19 @@ def create_app(
     def export_content(include_reading_state: bool = True) -> list[dict[str, object]]:
         with factory() as session:
             rows = session.execute(
-                select(ContentItem, Source.name, ReadingState.is_read, ReadingState.saved)
+                select(
+                    ContentItem,
+                    Source.name,
+                    ReadingState.is_read,
+                    ReadingState.saved,
+                    ReadingState.tag,
+                )
                 .join(Source, Source.id == ContentItem.source_id)
                 .outerjoin(ReadingState, ReadingState.content_id == ContentItem.id)
                 .order_by(ContentItem.published_at.desc().nulls_last(), ContentItem.id.desc())
             )
             output: list[dict[str, object]] = []
-            for item, source_name, is_read, saved in rows:
+            for item, source_name, is_read, saved, tag in rows:
                 record: dict[str, object] = {
                     "id": item.id,
                     "source_id": item.source_id,
@@ -676,6 +837,7 @@ def create_app(
                 if include_reading_state:
                     record["is_read"] = bool(is_read)
                     record["saved"] = bool(saved)
+                    record["tag"] = tag
                 output.append(record)
             return output
 
@@ -725,6 +887,7 @@ def create_app(
                         "content_id": row.content_id,
                         "is_read": row.is_read,
                         "saved": row.saved,
+                        "tag": row.tag,
                         "read_at": row.read_at.isoformat() if row.read_at else None,
                         "saved_at": row.saved_at.isoformat() if row.saved_at else None,
                     }
@@ -831,6 +994,7 @@ def create_app(
                     )
                     state.is_read = state_data.is_read
                     state.saved = state_data.saved
+                    state.tag = state_data.tag
                     session.add(state)
                 session.commit()
             except Exception as exc:
@@ -922,6 +1086,7 @@ def create_app(
                 source_url=safe_http_url(item.source_url) or None,
                 is_read=bool(state_row and state_row.is_read),
                 saved=bool(state_row and state_row.saved),
+                tag=state_row.tag if state_row else None,
                 read_at=state_row.read_at if state_row else None,
                 saved_at=state_row.saved_at if state_row else None,
             )
@@ -942,8 +1107,21 @@ def create_app(
             if update.saved is not None:
                 state.saved = update.saved
                 state.saved_at = now if update.saved else None
+            if update.tag is not None:
+                if update.tag == "none":
+                    state.tag = None
+                else:
+                    # Tagging is a kind of saving; an item cannot be "liked"
+                    # and not saved at the same time.
+                    state.tag = update.tag
+                    state.saved = True
+                    state.saved_at = state.saved_at or now
+            if update.saved is False:
+                state.tag = None
             state.updated_at = now
             session.commit()
+            # Keep the response shape stable for existing callers; the tag is
+            # visible through /content/{id} and /feed instead.
             return {"is_read": state.is_read, "saved": state.saved}
 
     return app

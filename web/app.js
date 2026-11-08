@@ -1,12 +1,18 @@
-import { FeedStore } from "/static/feed-store.mjs";
+import { FeedStore, sortForStream, hideDismissed, filterByTag } from "/static/feed-store.mjs";
 import { articleFragment, safeUrl, summaryText } from "/static/article.mjs";
 import { initResizableLayout } from "/static/layout.mjs";
 
 const $ = (id) => document.getElementById(id);
-const state = { source: "", query: "", selected: null, status: "all", article: null };
+const storedView = localStorage.getItem("yosee:view");
+const state = {
+  source: "", query: "", selected: null, status: "all", article: null,
+  view: ["stream", "saved", "library"].includes(storedView) ? storedView : "stream",
+  tag: "",
+};
+const dismissed = new Set();
 const translations = {
-  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "稍后阅读", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败" },
-  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save for later", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed" },
+  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新" },
+  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately" },
 };
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
@@ -19,6 +25,7 @@ function applyLanguage() {
   $("language").textContent = language === "zh" ? "EN" : "中";
   $("sync-status").textContent = language === "zh" ? "正在检查更新…" : "Checking updates…";
   loadBackupStatus();
+  loadCleanupStatus();
   renderFeed();
 }
 if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
@@ -46,6 +53,11 @@ async function api(path, options = {}) {
   return response.json();
 }
 
+function parseKeywords(value) {
+  const words = String(value || "").split(/[,，\s]+/).map((word) => word.trim().toLowerCase()).filter(Boolean);
+  return [...new Set(words)].slice(0, 20);
+}
+
 async function loadBackupStatus() {
   const node = $("backup-status");
   if (!node) return;
@@ -62,12 +74,23 @@ async function loadBackupStatus() {
   }
 }
 
+async function loadCleanupStatus() {
+  const node = $("cleanup-status");
+  if (!node) return;
+  try {
+    const info = await api("/cleanup/status");
+    node.textContent = info.enabled
+      ? `${t("cleanupOk")}${info.keep_recent}${language === "zh" ? " 条" : " links"}`
+      : t("cleanupNone");
+  } catch (_) { node.textContent = ""; }
+}
+
 async function loadSources() {
   try {
     const sources = await api("/sources");
     window.__sources = sources;
     $("sources").innerHTML = sources.map((source) =>
-      `<div class="source-row"><button class="source" data-source="${escapeHtml(source.id)}"><span>${escapeHtml(source.name)}</span><small>${source.enabled ? (source.last_error ? "Error" : "Active") : "Paused"}</small></button><button class="source-refresh" data-refresh-source="${escapeHtml(source.id)}" title="Fetch now" aria-label="Fetch ${escapeHtml(source.name)}">↻</button><button class="source-edit" data-edit-source="${escapeHtml(source.id)}" title="Source settings" aria-label="Settings for ${escapeHtml(source.name)}">⚙</button><button class="source-history" data-history-source="${escapeHtml(source.id)}" title="Fetch history" aria-label="History for ${escapeHtml(source.name)}">≡</button>${source.id.startsWith("custom-") ? `<button class="source-remove" data-remove-source="${escapeHtml(source.id)}" title="Remove source" aria-label="Remove ${escapeHtml(source.name)}">×</button>` : ""}</div>`
+      `<div class="source-row"><button class="source" data-source="${escapeHtml(source.id)}"><span>${escapeHtml(source.name)}</span><small class="${source.stale ? "source-stale" : ""}">${source.stale ? `${escapeHtml(t("sourceStale"))}${source.days_since_update !== null ? ` · ${source.days_since_update}d` : ""}` : source.enabled ? (source.last_error ? "Error" : "Active") : "Paused"}</small></button><button class="source-refresh" data-refresh-source="${escapeHtml(source.id)}" title="Fetch now" aria-label="Fetch ${escapeHtml(source.name)}">↻</button><button class="source-edit" data-edit-source="${escapeHtml(source.id)}" title="Source settings" aria-label="Settings for ${escapeHtml(source.name)}">⚙</button><button class="source-history" data-history-source="${escapeHtml(source.id)}" title="Fetch history" aria-label="History for ${escapeHtml(source.name)}">≡</button>${source.id.startsWith("custom-") ? `<button class="source-remove" data-remove-source="${escapeHtml(source.id)}" title="Remove source" aria-label="Remove ${escapeHtml(source.name)}">×</button>` : ""}</div>`
     ).join("");
   } catch (error) {
     $("sources").innerHTML = `<p class="error">${escapeHtml(error.message)}</p><button id="retry-sources">Retry sources</button>`;
@@ -82,6 +105,7 @@ function openSourceSettings(source) {
   form.elements.name.value = source.name;
   form.elements.interval.value = Math.round(source.fetch_interval_seconds / 60);
   form.elements.enabled.checked = source.enabled;
+  form.elements.keywords.value = (source.keywords || []).join(", ");
   $("settings-form-error").hidden = true;
   dialog.showModal();
 }
@@ -107,6 +131,7 @@ $("settings-form").addEventListener("submit", async (event) => {
   try {
     await api(`/sources/${encodeURIComponent(data.get("id"))}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
       name: data.get("name"), fetch_interval_seconds: Number(data.get("interval")) * 60, enabled: data.has("enabled"),
+      keywords: parseKeywords(data.get("keywords")),
     }) });
     $("settings-dialog").close();
     await loadSources();
@@ -127,6 +152,7 @@ function setupSourceDialog() {
     button.disabled = true;
     $("source-form-error").hidden = true;
     const data = new FormData(form);
+    const keywords = parseKeywords(data.get("keywords"));
     try {
       let feedUrl = String(data.get("feed_url"));
       const customHtml = !$("html-config").hidden;
@@ -136,11 +162,13 @@ function setupSourceDialog() {
           name: data.get("name"), url: feedUrl, item_selector: data.get("item_selector"),
           title_selector: data.get("title_selector"), link_selector: data.get("link_selector"),
           summary_selector: data.get("summary_selector") || null, fetch_interval_seconds: Number(data.get("interval")) * 60,
+          keywords,
         }) });
       } else {
         const discovered = await api("/sources/discover", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: data.get("name"), url: feedUrl }) });
         result = await api("/sources", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
           name: data.get("name"), feed_url: discovered.feed_url, fetch_interval_seconds: Number(data.get("interval")) * 60,
+          keywords,
         }) });
       }
       dialog.close();
@@ -154,35 +182,91 @@ function setupSourceDialog() {
   });
 }
 
+function setView(view, reload = true) {
+  state.view = view;
+  localStorage.setItem("yosee:view", view);
+  document.body.dataset.view = view;
+  document.querySelectorAll(".view-button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+  $("saved-filters").hidden = view !== "saved";
+  // Only one reader may exist at a time: the classic pane and the full-screen
+  // dialog both use #read / #save / #article-body ids.
+  $("detail").innerHTML = "";
+  closeReader();
+  if (view === "saved") state.status = "saved";
+  else if (view === "stream") state.status = "all";
+  document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.status === state.status));
+  dismissed.clear();
+  renderFeed();
+  if (reload) return resetFeed();
+  return Promise.resolve();
+}
+
 function resetFeed() {
   clearTimeout(searchTimer);
   $("updates").hidden = true;
+  dismissed.clear();
   const filters = { status: state.status };
   if (state.source) filters.source_id = state.source;
   if (state.query) filters.q = state.query;
   return feed.reset(filters);
 }
 
+function renderCard(item) {
+  const stream = state.view !== "library";
+  const saved = !!item.saved;
+  return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""}" data-id="${escapeHtml(item.id)}">
+      <button class="card-open" data-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.title)}">
+        <span class="card-source">${escapeHtml(item.source_name)}${item.is_read ? ` · ${t("seen")}` : ""}</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <span class="card-summary">${escapeHtml(summaryText(item.summary))}</span>
+        <time>${formatDate(item.published_at)}${saved ? ` · ${t("saved")}` : ""}</time>
+      </button>
+      <div class="card-actions">
+        <button data-save="${escapeHtml(item.id)}" aria-pressed="${saved}">${saved ? t("unsave") : t("save")}</button>
+        ${saved ? `<button data-tag="${escapeHtml(item.id)}" data-value="like" aria-pressed="${item.tag === "like"}">${t("tagLike")}</button><button data-tag="${escapeHtml(item.id)}" data-value="later" aria-pressed="${item.tag === "later"}">${t("tagLater")}</button>` : ""}
+        ${stream ? `<button class="card-dismiss" data-dismiss="${escapeHtml(item.id)}">${t("dismiss")} ✕</button>` : ""}
+      </div>
+    </article>`;
+}
+
+function visibleItems() {
+  const ordered = state.view === "library"
+    ? feed.items
+    : sortForStream(hideDismissed(feed.items, dismissed));
+  return state.view === "saved" ? filterByTag(ordered, state.tag) : ordered;
+}
+
 function renderFeed() {
   const titles = { all: t("latest"), unread: t("unread"), saved: t("saved"), archived: t("archived") };
-  $("feed-title").textContent = state.query ? `${t("searchTitle")} · ${titles[state.status]}` : titles[state.status];
-  $("count").textContent = `${feed.items.length} ${t("loaded")}`;
+  $("feed-title").textContent = state.view === "saved" ? t("viewSaved")
+    : state.view === "stream" ? t("viewStream")
+      : state.query ? `${t("searchTitle")} · ${titles[state.status]}` : titles[state.status];
+  const items = visibleItems();
+  $("count").textContent = `${items.length} ${t("loaded")}`;
   $("feed").setAttribute("aria-busy", String(feed.loading));
-  $("feed").innerHTML = feed.items.map((item) =>
-    `<button class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""}" data-id="${escapeHtml(item.id)}" aria-pressed="${item.id === state.selected}">
-      <span class="card-source">${escapeHtml(item.source_name)}</span>
-      <strong>${escapeHtml(item.title)}</strong>
-      <span class="card-summary">${escapeHtml(summaryText(item.summary))}</span>
-      <time>${formatDate(item.published_at)}${item.is_read ? " · Read" : ""}${item.saved ? " · Saved" : ""}</time>
-    </button>`
-  ).join("");
+  $("feed").innerHTML = items.map(renderCard).join("");
   $("feed-error").textContent = feed.error;
   $("feed-error").hidden = !feed.error;
   $("feed-status").textContent = feed.loading ? t("loading")
-    : feed.error ? "" : !feed.items.length ? t("empty") : !feed.cursor ? t("end") : "";
+    : feed.error ? "" : !items.length ? t("empty") : !feed.cursor ? t("end") : "";
   $("load-more").hidden = !feed.loading && !feed.cursor && !feed.error;
   $("load-more").disabled = feed.loading;
   $("load-more").textContent = feed.loading ? t("loading") : feed.error ? t("retry") : t("loadMore");
+}
+
+function articleContainer() {
+  return state.view === "library" ? $("detail") : $("reader-body");
+}
+
+function openReader() {
+  const dialog = $("reader-dialog");
+  if (!dialog.open) dialog.showModal();
+}
+
+function closeReader() {
+  const dialog = $("reader-dialog");
+  if (dialog.open) dialog.close();
+  $("reader-body").innerHTML = "";
 }
 
 async function showArticle(id) {
@@ -192,8 +276,9 @@ async function showArticle(id) {
   state.selected = id;
   state.article = null;
   renderFeed();
-  $("detail").innerHTML = '<p class="empty" role="status">Loading article…</p>';
-  if (window.matchMedia("(max-width: 900px)").matches) $("detail").scrollIntoView({ behavior: "smooth" });
+  articleContainer().innerHTML = '<p class="empty" role="status">Loading article…</p>';
+  if (state.view !== "library") openReader();
+  else if (window.matchMedia("(max-width: 900px)").matches) $("detail").scrollIntoView({ behavior: "smooth" });
   try {
     const item = await api(`/content/${encodeURIComponent(id)}`, { signal: controller.signal });
     if (controller !== articleRequest) return;
@@ -201,7 +286,7 @@ async function showArticle(id) {
     renderArticle();
   } catch (error) {
     if (controller !== articleRequest || error.name === "AbortError") return;
-    $("detail").innerHTML = `<p class="error" role="alert">${escapeHtml(error.message)}</p><button id="retry-article">Retry article</button>`;
+    articleContainer().innerHTML = `<p class="error" role="alert">${escapeHtml(error.message)}</p><button id="retry-article">Retry article</button>`;
     $("retry-article").addEventListener("click", () => showArticle(id));
   }
 }
@@ -209,12 +294,12 @@ async function showArticle(id) {
 function renderArticle() {
   const item = state.article;
   if (!item) return;
-  $("detail").innerHTML = `<div class="article-meta">${escapeHtml(item.source_name)} · ${formatDate(item.published_at)} · ${item.is_read ? "Read" : "Unread"}</div>
+  articleContainer().innerHTML = `<div class="article-meta">${escapeHtml(item.source_name)} · ${formatDate(item.published_at)} · ${item.is_read ? t("seen") : t("unread")}</div>
     <h1>${escapeHtml(item.title)}</h1><p class="byline">${escapeHtml(item.author || "")}</p>
     <div class="article-actions">
-      <button id="read" aria-pressed="${item.is_read}">${item.is_read ? "Mark unread" : "Mark read"}</button>
-      <button id="save" aria-pressed="${item.saved}">${item.saved ? "Remove saved" : "Save for later"}</button>
-      <a id="original" target="_blank" rel="noopener noreferrer">Open original ↗</a>
+      <button id="read" aria-pressed="${item.is_read}">${item.is_read ? t("unreadAction") : t("read")}</button>
+      <button id="save" aria-pressed="${item.saved}">${item.saved ? t("unsave") : t("save")}</button>
+      <a id="original" target="_blank" rel="noopener noreferrer">${t("original")}</a>
     </div><p id="action-error" class="error" role="alert" hidden></p><div id="article-body" class="article-body"></div>`;
   const original = safeUrl(item.canonical_url);
   if (original) $("original").href = original;
@@ -222,34 +307,69 @@ function renderArticle() {
   $("article-body").append(articleFragment(item));
   $("read").disabled = $("save").disabled = busy.has(item.id);
   $("read").addEventListener("click", () => updateState(item, { is_read: !item.is_read }));
-  $("save").addEventListener("click", () => updateState(item, { saved: !item.saved }));
+  $("save").addEventListener("click", () => updateState(item, item.saved ? { saved: false } : { saved: true, tag: "later" }));
+}
+
+function findItem(id) {
+  return feed.items.find((entry) => entry.id === id) || (state.selected === id ? state.article : null);
 }
 
 async function updateState(item, change) {
   const id = item.id;
   if (busy.has(id)) return;
   busy.add(id);
-  $("read").disabled = $("save").disabled = true;
-  $("action-error").hidden = true;
+  const readButton = $("read");
+  const saveButton = $("save");
+  const errorNode = $("action-error");
+  if (readButton) readButton.disabled = true;
+  if (saveButton) saveButton.disabled = true;
+  if (errorNode) errorNode.hidden = true;
   try {
     const values = await api(`/content/${encodeURIComponent(id)}/state`, {
       method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change),
     });
-    Object.assign(item, values);
-    feed.patch(id, values);
+    const merged = { ...values };
+    if (change.tag !== undefined) merged.tag = change.tag === "none" ? null : change.tag;
+    if (change.saved === false) merged.tag = null;
+    Object.assign(item, merged);
+    feed.patch(id, merged);
     if (state.selected === id && state.article) {
-      Object.assign(state.article, values);
+      Object.assign(state.article, merged);
       renderArticle();
     }
   } catch (error) {
-    if (state.selected === id && $("action-error")) {
-      $("action-error").textContent = error.message;
-      $("action-error").hidden = false;
+    if (errorNode) {
+      errorNode.textContent = error.message;
+      errorNode.hidden = false;
     }
   } finally {
     busy.delete(id);
-    if (state.selected === id && $("read")) $("read").disabled = $("save").disabled = false;
+    const read = $("read");
+    const save = $("save");
+    if (read) read.disabled = false;
+    if (save) save.disabled = false;
   }
+  renderFeed();
+}
+
+function toggleSaved(id) {
+  const item = findItem(id);
+  if (!item) return;
+  updateState(item, item.saved ? { saved: false } : { saved: true, tag: "later" });
+}
+
+function toggleTag(id, value) {
+  const item = findItem(id);
+  if (!item) return;
+  updateState(item, { tag: item.tag === value ? "none" : value });
+}
+
+function dismissCard(id) {
+  const item = findItem(id);
+  if (!item) return;
+  dismissed.add(id);
+  renderFeed();
+  updateState(item, { is_read: true });
 }
 
 async function pollSync() {
@@ -327,8 +447,40 @@ $("sidebar").addEventListener("click", (event) => {
   resetFeed();
 });
 $("feed").addEventListener("click", (event) => {
-  const card = event.target.closest(".feed-card");
-  if (card) showArticle(card.dataset.id);
+  const save = event.target.closest("button[data-save]");
+  if (save) { toggleSaved(save.dataset.save); return; }
+  const tag = event.target.closest("button[data-tag]");
+  if (tag) { toggleTag(tag.dataset.tag, tag.dataset.value); return; }
+  const skip = event.target.closest("button[data-dismiss]");
+  if (skip) { dismissCard(skip.dataset.dismiss); return; }
+  const open = event.target.closest("button[data-open]");
+  if (open) showArticle(open.dataset.open);
+});
+$("view-switch").addEventListener("click", (event) => {
+  const button = event.target.closest("button.view-button");
+  if (button && button.dataset.view !== state.view) setView(button.dataset.view);
+});
+$("saved-filters").addEventListener("click", (event) => {
+  const button = event.target.closest("button.tag-filter");
+  if (!button) return;
+  state.tag = button.dataset.tag;
+  document.querySelectorAll(".tag-filter").forEach((node) => node.classList.toggle("active", node === button));
+  renderFeed();
+});
+$("reader-close").addEventListener("click", closeReader);
+$("reader-dialog").addEventListener("close", () => { $("reader-body").innerHTML = ""; });
+$("export-saved").addEventListener("click", async () => {
+  try {
+    const links = await api("/export/saved-links");
+    if (!links.length) { window.alert(t("exportEmpty")); return; }
+    const text = links.map((link) => `${link.title}\n${link.url}`).join("\n\n");
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const anchor = document.createElement("a");
+    anchor.href = URL.createObjectURL(blob);
+    anchor.download = `yosee-saved-${new Date().toISOString().slice(0, 10)}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(anchor.href);
+  } catch (error) { window.alert(error.message); }
 });
 $("query").addEventListener("input", (event) => {
   state.query = event.target.value.trim();
@@ -346,15 +498,17 @@ $("language").addEventListener("click", () => { language = language === "zh" ? "
 document.addEventListener("keydown", (event) => {
   if (event.target.matches("input, textarea")) return;
   if (event.key === "j" || event.key === "ArrowDown") {
-    const index = Math.max(0, feed.items.findIndex((item) => item.id === state.selected) + 1);
-    if (feed.items[index]) showArticle(feed.items[index].id);
+    const items = visibleItems();
+    const index = Math.max(0, items.findIndex((item) => item.id === state.selected) + 1);
+    if (items[index]) showArticle(items[index].id);
     event.preventDefault();
   } else if (event.key === "k" || event.key === "ArrowUp") {
-    const index = Math.max(0, feed.items.findIndex((item) => item.id === state.selected) - 1);
-    if (feed.items[index]) showArticle(feed.items[index].id);
+    const items = visibleItems();
+    const index = Math.max(0, items.findIndex((item) => item.id === state.selected) - 1);
+    if (items[index]) showArticle(items[index].id);
     event.preventDefault();
   } else if (event.key === "r" && state.article) updateState(state.article, { is_read: !state.article.is_read });
-  else if (event.key === "s" && state.article) updateState(state.article, { saved: !state.article.saved });
+  else if (event.key === "s" && state.article) updateState(state.article, state.article.saved ? { saved: false } : { saved: true, tag: "later" });
 });
 $("import").addEventListener("click", () => $("import-file").click());
 $("backup").addEventListener("click", async () => {
@@ -395,6 +549,8 @@ setupSourceDialog();
 applyLanguage();
 initResizableLayout();
 loadBackupStatus();
+loadCleanupStatus();
+setView(state.view, false);
 // Record the update revision before loading the first page.
 pollSync().then(resetFeed);
 

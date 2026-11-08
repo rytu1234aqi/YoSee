@@ -58,4 +58,30 @@ export class FeedStore {
         && (this.filters.status !== "saved" || item.saved));
     this.changed();
   }
+
+  dismiss(id) {
+    this.items = this.items.filter((item) => item.id !== id);
+    this.changed();
+  }
+}
+
+// "Seen" cards sink to the bottom of the single-column stream. Order inside
+// each group is preserved so cursor paging never reshuffles what was loaded.
+export function sortForStream(items) {
+  const fresh = [];
+  const seen = [];
+  for (const item of items) (item.is_read ? seen : fresh).push(item);
+  return fresh.concat(seen);
+}
+
+// Dismissed cards leave the current screen immediately; they are still in
+// the database (just marked read) and may reappear on the next reload.
+export function hideDismissed(items, dismissed) {
+  return items.filter((item) => !dismissed.has(item.id));
+}
+
+// The collection page has a small "liked / read later" filter.
+export function filterByTag(items, tag) {
+  if (!tag) return items;
+  return items.filter((item) => item.tag === tag);
 }
