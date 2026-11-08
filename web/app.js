@@ -5,8 +5,8 @@ import { initResizableLayout } from "/static/layout.mjs";
 const $ = (id) => document.getElementById(id);
 const state = { source: "", query: "", selected: null, status: "all", article: null };
 const translations = {
-  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "稍后阅读", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认" },
-  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save for later", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset" },
+  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "稍后阅读", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败" },
+  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save for later", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed" },
 };
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
@@ -18,6 +18,7 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-title]").forEach((node) => { node.title = t(node.dataset.i18nTitle); });
   $("language").textContent = language === "zh" ? "EN" : "中";
   $("sync-status").textContent = language === "zh" ? "正在检查更新…" : "Checking updates…";
+  loadBackupStatus();
   renderFeed();
 }
 if (localStorage.getItem("theme") === "dark") document.documentElement.dataset.theme = "dark";
@@ -43,6 +44,22 @@ async function api(path, options = {}) {
     throw new Error(typeof body.detail === "string" ? body.detail : `Request failed (${response.status}). Please retry.`);
   }
   return response.json();
+}
+
+async function loadBackupStatus() {
+  const node = $("backup-status");
+  if (!node) return;
+  try {
+    const info = await api("/backup/status");
+    if (!info.enabled) { node.textContent = ""; return; }
+    if (info.last_error) { node.textContent = t("backupError"); node.dataset.state = "error"; return; }
+    const day = info.latest_file ? info.latest_file.replace(/^daily-|\.json$/g, "") : "";
+    node.textContent = day ? `${t("backupOk")}${day}` : t("backupNone");
+    node.dataset.state = "ok";
+  } catch (_) {
+    node.textContent = t("backupError");
+    node.dataset.state = "error";
+  }
 }
 
 async function loadSources() {
@@ -377,6 +394,7 @@ loadSources();
 setupSourceDialog();
 applyLanguage();
 initResizableLayout();
+loadBackupStatus();
 // Record the update revision before loading the first page.
 pollSync().then(resetFeed);
 

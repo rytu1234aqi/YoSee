@@ -40,6 +40,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--poll-seconds", type=float, default=30, help="check due sources every N seconds"
     )
     parser.add_argument("--sources-dir", type=Path, default=None)
+    parser.add_argument(
+        "--no-auto-backup", action="store_true", help="disable daily lightweight backups"
+    )
+    parser.add_argument(
+        "--backup-dir", type=Path, default=None, help="override the daily backup folder"
+    )
     args = parser.parse_args(argv)
     if not math.isfinite(args.poll_seconds) or args.poll_seconds <= 0:
         parser.error("--poll-seconds must be finite and positive")
@@ -61,7 +67,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise SystemExit("uvicorn is required; run `uv sync` first") from exc
     from server.web import create_web_app
 
-    app = create_web_app(auto_fetch=not args.no_auto_fetch, poll_seconds=args.poll_seconds)
+    app = create_web_app(
+        auto_fetch=not args.no_auto_fetch,
+        poll_seconds=args.poll_seconds,
+        auto_backup=not args.no_auto_backup,
+        backup_dir=args.backup_dir,
+    )
     uvicorn.run(app, host=args.host, port=args.port, reload=False)
     return 0
 

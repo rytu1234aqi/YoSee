@@ -60,6 +60,8 @@ def create_web_app(
     auto_fetch: bool = True,
     poll_seconds: float = 30,
     auth_token: str | None = None,
+    auto_backup: bool = True,
+    backup_dir: Path | None = None,
 ) -> FastAPI:
     """Build the production app with a per-process token for the local API.
 
@@ -74,6 +76,8 @@ def create_web_app(
         auto_fetch=auto_fetch,
         poll_seconds=poll_seconds,
         auth_token=token,
+        auto_backup=auto_backup,
+        backup_dir=backup_dir,
     )
     app.mount("/static", WebStaticFiles(directory=WEB_ROOT), name="static")
 

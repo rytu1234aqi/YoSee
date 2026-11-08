@@ -8,6 +8,7 @@ import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from server import __version__
+from server.backup import BackupManager, default_backup_dir
 from server.database.session import create_db_engine, create_session_factory, get_database_url
 from server.ingestion.dedup import canonical_url_hash
 from server.ingestion.fetcher import Fetcher
@@ -320,6 +322,22 @@ class SyncStatus(BaseModel):
     failed_sources: int
 
 
+class BackupStatus(BaseModel):
+    enabled: bool
+    format: str
+    directory: str
+    last_backup_at: datetime | None = None
+    latest_file: str | None = None
+    files: int = 0
+    last_error: str | None = None
+
+
+class BackupRunResult(BaseModel):
+    ok: bool
+    path: str | None = None
+    error: str | None = None
+
+
 def _read_feed(
     session: Session,
     *,
@@ -397,6 +415,8 @@ def create_app(
     poll_seconds: float = 30,
     fetcher_factory: Callable[..., Fetcher] = Fetcher,
     auth_token: str | None = None,
+    auto_backup: bool = False,
+    backup_dir: Path | None = None,
 ) -> FastAPI:
     """Create an API instance; ``database_url`` is injectable for tests.
 
@@ -408,14 +428,22 @@ def create_app(
     engine = create_db_engine(url)
     factory = create_session_factory(engine)
     scheduler = FetchScheduler(factory, poll_seconds=poll_seconds, fetcher_factory=fetcher_factory)
+    resolved_backup_dir = backup_dir or default_backup_dir(url)
+    backup_manager = BackupManager(
+        factory,
+        resolved_backup_dir or Path("data/backups"),
+        enabled=auto_backup and resolved_backup_dir is not None,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if auto_fetch:
             scheduler.start()
+        backup_manager.start()
         try:
             yield
         finally:
+            backup_manager.stop()
             await scheduler.stop()
             engine.dispose()
 
@@ -457,6 +485,19 @@ def create_app(
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/backup/status", response_model=BackupStatus)
+    def backup_status() -> BackupStatus:
+        return BackupStatus.model_validate(backup_manager.status())
+
+    @app.post("/backup/run", response_model=BackupRunResult)
+    def backup_run() -> BackupRunResult:
+        ok = backup_manager.run_once()
+        return BackupRunResult(
+            ok=ok,
+            path=str(backup_manager.last_path) if ok else None,
+            error=None if ok else (backup_manager.last_error or "backup disabled"),
+        )
 
     @app.get("/sync/status", response_model=SyncStatus)
     def sync_status() -> SyncStatus:
