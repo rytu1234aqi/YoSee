@@ -20,6 +20,78 @@ const translations = {
   zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", viewToday: "今天刷过", todayEmpty: "今天还没刷过文章。", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗", linkOnly: "只有链接", linkHint: "点卡片会直接打开原网站" },
   en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", viewToday: "Seen today", todayEmpty: "Nothing seen today yet.", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately", noBody: "Only the link was saved — this site did not include the article text.", openOriginal: "Open original ↗", linkOnly: "Link only", linkHint: "Clicking opens the original site" },
 };
+// Labels that used to be hard-coded English. Kept in a second table so the
+// long legacy translation lines above stay untouched.
+const uiLabels = {
+  zh: {
+    moreTools: "更多工具", refreshAction: "刷新文章", importAction: "导入文章",
+    backupAction: "完整备份", themeAction: "切换深色模式", languageAction: "切换语言",
+    close: "关闭", undated: "无日期", loadingArticle: "正在打开文章…",
+    retryArticle: "重试打开", requestFailed: "请求失败，请再试一次。",
+    syncPaused: "自动更新已暂停", syncStarting: "自动更新准备中…",
+    syncUpdating: "正在更新", syncChecked: "上次检查",
+    syncFailed: "检查更新失败，稍后会自动重试",
+    syncUnavailable: "暂时取不到更新状态，正在重试",
+    syncTitle: "软件运行时，各来源会按设定的间隔自动更新。",
+    syncFailures: " 个来源抓取失败，稍后重试",
+    sourceActive: "正常", sourceError: "出错", sourcePaused: "已暂停",
+    fetchNow: "立即抓取", settingsFor: "设置：", historyFor: "抓取记录：",
+    removeFor: "移除：", fetchDone: "抓到 ", fetchDoneTail: " 篇新文章。",
+    fetchFailed: "抓取失败：", unknownError: "未知错误",
+    removeConfirm: "确定移除这个来源，并删掉它抓下来的文章吗？",
+    backupFailed: "备份失败", invalidBackup: "这个文件读不懂，请确认选的是导出的 JSON。",
+    importDone: "导入了 ", importDoneMid: " 篇，跳过 ", importDoneTail: " 篇。",
+    retrySources: "重试加载来源", historyLoading: "正在读取记录…",
+    historyEmpty: "还没有抓取记录。", historyNew: " 篇新增",
+    historyUpdated: " 篇更新", runsTitle: "抓取记录 · ",
+    runSuccess: "成功", runFailed: "失败",
+    sourceAdded: "来源已添加，抓到 ", sourceAddedFail: "来源已添加，但第一次抓取失败：",
+    selectArticle: "从左边选一篇文章开始读", addSourceTitle: "添加来源",
+    settingsTitle: "来源设置", fetchHistory: "抓取记录", sourceName: "名称",
+    sourceUrl: "网站或 RSS/Atom 地址", sourceInterval: "每隔多少分钟检查一次",
+    advancedHtml: "这个网站没有 RSS，手动配置", itemSelector: "文章条目选择器",
+    titleSelector: "标题选择器", linkSelector: "链接选择器",
+    summarySelector: "摘要选择器（可选）",
+    sourceFormNote: "添加之后，可以在来源设置里暂停或修改。",
+    autoUpdates: "开启自动更新", cancel: "取消", save: "保存",
+    addAndFetch: "添加并抓取",
+  },
+  en: {
+    moreTools: "More tools", refreshAction: "Refresh", importAction: "Import",
+    backupAction: "Full backup", themeAction: "Toggle dark mode", languageAction: "Switch language",
+    close: "Close", undated: "Undated", loadingArticle: "Loading article…",
+    retryArticle: "Retry article", requestFailed: "Request failed. Please retry.",
+    syncPaused: "Automatic updates paused", syncStarting: "Automatic updates starting…",
+    syncUpdating: "Updating", syncChecked: "Checked",
+    syncFailed: "Update check failed · retry scheduled",
+    syncUnavailable: "Update status unavailable · retrying",
+    syncTitle: "Sources update at their configured intervals while this server is running.",
+    syncFailures: " source(s) failed; retry scheduled",
+    sourceActive: "Active", sourceError: "Error", sourcePaused: "Paused",
+    fetchNow: "Fetch now", settingsFor: "Settings for ", historyFor: "History for ",
+    removeFor: "Remove ", fetchDone: "Fetched ", fetchDoneTail: " new article(s).",
+    fetchFailed: "Fetch failed: ", unknownError: "unknown error",
+    removeConfirm: "Remove this source and its downloaded articles?",
+    backupFailed: "Backup failed", invalidBackup: "Invalid backup file.",
+    importDone: "Imported ", importDoneMid: " article(s); skipped ", importDoneTail: ".",
+    retrySources: "Retry sources", historyLoading: "Loading history…",
+    historyEmpty: "No fetch history yet.", historyNew: " new",
+    historyUpdated: " updated", runsTitle: "Fetch history · ",
+    runSuccess: "Success", runFailed: "Failed",
+    sourceAdded: "Source added: ", sourceAddedFail: "Source added, but first fetch failed: ",
+    selectArticle: "Select an article to read", addSourceTitle: "Add source",
+    settingsTitle: "Source settings", fetchHistory: "Fetch history", sourceName: "Name",
+    sourceUrl: "Website or RSS/Atom URL", sourceInterval: "Check every (minutes)",
+    advancedHtml: "Configure a page without RSS", itemSelector: "Article item CSS selector",
+    titleSelector: "Title CSS selector", linkSelector: "Link CSS selector",
+    summarySelector: "Summary CSS selector (optional)",
+    sourceFormNote: "You can pause or edit a source after adding it from its source settings.",
+    autoUpdates: "Automatic updates enabled", cancel: "Cancel", save: "Save",
+    addAndFetch: "Add and fetch",
+  },
+};
+Object.assign(translations.zh, uiLabels.zh);
+Object.assign(translations.en, uiLabels.en);
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
 function applyLanguage() {
@@ -28,7 +100,7 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => { node.placeholder = t(node.dataset.i18nPlaceholder); });
   document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => { node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel)); });
   document.querySelectorAll("[data-i18n-title]").forEach((node) => { node.title = t(node.dataset.i18nTitle); });
-  $("language").textContent = language === "zh" ? "EN" : "中";
+  $("language-code").textContent = language === "zh" ? "EN" : "中";
   $("sync-status").textContent = language === "zh" ? "正在检查更新…" : "Checking updates…";
   loadBackupStatus();
   loadCleanupStatus();
@@ -54,7 +126,7 @@ async function api(path, options = {}) {
   const response = await fetch(path, { cache: "no-store", ...options, headers });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(typeof body.detail === "string" ? body.detail : `Request failed (${response.status}). Please retry.`);
+    throw new Error(typeof body.detail === "string" ? body.detail : t("requestFailed"));
   }
   return response.json();
 }
@@ -91,15 +163,23 @@ async function loadCleanupStatus() {
   } catch (_) { node.textContent = ""; }
 }
 
+function sourceStatusLabel(source) {
+  if (source.stale) {
+    return `${t("sourceStale")}${source.days_since_update !== null ? ` · ${source.days_since_update}d` : ""}`;
+  }
+  if (!source.enabled) return t("sourcePaused");
+  return source.last_error ? t("sourceError") : t("sourceActive");
+}
+
 async function loadSources() {
   try {
     const sources = await api("/sources");
     window.__sources = sources;
     $("sources").innerHTML = sources.map((source) =>
-      `<div class="source-row"><button class="source" data-source="${escapeHtml(source.id)}"><span>${escapeHtml(source.name)}</span><small class="${source.stale ? "source-stale" : ""}">${source.stale ? `${escapeHtml(t("sourceStale"))}${source.days_since_update !== null ? ` · ${source.days_since_update}d` : ""}` : source.enabled ? (source.last_error ? "Error" : "Active") : "Paused"}</small></button><button class="source-refresh" data-refresh-source="${escapeHtml(source.id)}" title="Fetch now" aria-label="Fetch ${escapeHtml(source.name)}">↻</button><button class="source-edit" data-edit-source="${escapeHtml(source.id)}" title="Source settings" aria-label="Settings for ${escapeHtml(source.name)}">⚙</button><button class="source-history" data-history-source="${escapeHtml(source.id)}" title="Fetch history" aria-label="History for ${escapeHtml(source.name)}">≡</button>${source.id.startsWith("custom-") ? `<button class="source-remove" data-remove-source="${escapeHtml(source.id)}" title="Remove source" aria-label="Remove ${escapeHtml(source.name)}">×</button>` : ""}</div>`
+      `<div class="source-row"><button class="source" data-source="${escapeHtml(source.id)}"><span>${escapeHtml(source.name)}</span><small class="${source.stale ? "source-stale" : ""}">${escapeHtml(sourceStatusLabel(source))}</small></button><button class="source-refresh" data-refresh-source="${escapeHtml(source.id)}" title="${escapeHtml(t("fetchNow"))}" aria-label="${escapeHtml(t("fetchNow"))} ${escapeHtml(source.name)}">↻</button><button class="source-edit" data-edit-source="${escapeHtml(source.id)}" title="${escapeHtml(t("settingsTitle"))}" aria-label="${escapeHtml(t("settingsFor"))}${escapeHtml(source.name)}">⚙</button><button class="source-history" data-history-source="${escapeHtml(source.id)}" title="${escapeHtml(t("fetchHistory"))}" aria-label="${escapeHtml(t("historyFor"))}${escapeHtml(source.name)}">≡</button>${source.id.startsWith("custom-") ? `<button class="source-remove" data-remove-source="${escapeHtml(source.id)}" title="${escapeHtml(t("removeFor"))}" aria-label="${escapeHtml(t("removeFor"))}${escapeHtml(source.name)}">×</button>` : ""}</div>`
     ).join("");
   } catch (error) {
-    $("sources").innerHTML = `<p class="error">${escapeHtml(error.message)}</p><button id="retry-sources">Retry sources</button>`;
+    $("sources").innerHTML = `<p class="error">${escapeHtml(error.message)}</p><button id="retry-sources">${escapeHtml(t("retrySources"))}</button>`;
     $("retry-sources").addEventListener("click", loadSources);
   }
 }
@@ -116,13 +196,19 @@ function openSourceSettings(source) {
   dialog.showModal();
 }
 
+function runStatusLabel(status) {
+  if (status === "success") return t("runSuccess");
+  if (status === "failed") return t("runFailed");
+  return status;
+}
+
 async function openSourceHistory(source) {
-  $("runs-title").textContent = `Fetch history · ${source.name}`;
-  $("runs-list").innerHTML = '<p class="empty">Loading history…</p>';
+  $("runs-title").textContent = `${t("runsTitle")}${source.name}`;
+  $("runs-list").innerHTML = `<p class="empty">${escapeHtml(t("historyLoading"))}</p>`;
   $("runs-dialog").showModal();
   try {
     const runs = await api(`/sources/${encodeURIComponent(source.id)}/runs`);
-    $("runs-list").innerHTML = runs.length ? runs.map((run) => `<div class="run-row"><div><strong>${escapeHtml(run.status)}</strong><span>${new Date(run.started_at).toLocaleString()}</span></div><div>${run.items_created} new · ${run.items_updated} updated${run.error_message ? `<p class="error">${escapeHtml(run.error_message)}</p>` : ""}</div></div>`).join("") : '<p class="empty">No fetch history yet.</p>';
+    $("runs-list").innerHTML = runs.length ? runs.map((run) => `<div class="run-row"><div><strong>${escapeHtml(runStatusLabel(run.status))}</strong><span>${new Date(run.started_at).toLocaleString()}</span></div><div>${run.items_created}${escapeHtml(t("historyNew"))} · ${run.items_updated}${escapeHtml(t("historyUpdated"))}${run.error_message ? `<p class="error">${escapeHtml(run.error_message)}</p>` : ""}</div></div>`).join("") : `<p class="empty">${escapeHtml(t("historyEmpty"))}</p>`;
   } catch (error) { $("runs-list").innerHTML = `<p class="error">${escapeHtml(error.message)}</p>`; }
 }
 
@@ -180,7 +266,9 @@ function setupSourceDialog() {
       dialog.close();
       await loadSources();
       resetFeed();
-      window.alert(result.ok ? `Source added: ${result.inserted} new article(s) fetched.` : `Source added, but first fetch failed: ${result.error || "unknown error"}`);
+      window.alert(result.ok
+        ? `${t("sourceAdded")}${result.inserted}${t("fetchDoneTail")}`
+        : `${t("sourceAddedFail")}${result.error || t("unknownError")}`);
     } catch (error) {
       $("source-form-error").textContent = error.message;
       $("source-form-error").hidden = false;
@@ -231,12 +319,13 @@ function resetFeed() {
   return feed.reset(filters);
 }
 
-// Every source gets a stable hue so a stream of link-only cards still has
-// visual variety instead of twenty identical pale boxes.
+// A small fixed palette keeps the stream calm. The hash only picks which of
+// the four shades a source gets, and always gives the same source the same one.
+const COVER_HUES = [205, 168, 262, 28];
 function sourceHue(name) {
   let hash = 7;
-  for (const char of String(name || "")) hash = (hash * 31 + char.codePointAt(0)) % 360;
-  return hash;
+  for (const char of String(name || "")) hash = (Math.imul(hash, 31) + char.codePointAt(0)) >>> 0;
+  return COVER_HUES[hash % COVER_HUES.length];
 }
 
 function coverMarkup(item) {
@@ -268,21 +357,23 @@ function renderCard(item) {
   // "今天刷过" is a history list: everything in it was already seen, so a
   // "skip" button would be a no-op (todayItems bypasses hideDismissed).
   const canDismiss = stream && state.view !== "today";
+  // Tagging belongs in the collection, not in the middle of a scrolling feed.
+  const canTag = stream && state.view === "saved";
   const saved = !!item.saved;
   const hue = sourceHue(item.source_name || item.title);
   const linkOnly = opensOriginal(item);
   return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""} ${linkOnly ? "link-only" : ""}" data-id="${escapeHtml(item.id)}" style="--cover-hue:${hue}">
       <button class="card-open" data-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.title)}">
         ${stream ? coverMarkup(item) : ""}
-        <span class="card-source">${escapeHtml(item.source_name)}${item.is_read ? ` · ${t("seen")}` : ""}${linkOnly ? `<span class="link-badge" title="${escapeHtml(t("linkHint"))}">↗ ${t("linkOnly")}</span>` : ""}</span>
+        <span class="card-source">${escapeHtml(item.source_name)}</span>
         <strong>${escapeHtml(item.title)}</strong>
         ${cardSummary(item)}
-        <time>${formatDate(item.published_at)}${saved ? ` · ${t("saved")}` : ""}</time>
+        <time class="card-meta">${formatDate(item.published_at)}${item.is_read ? ` · ${t("seen")}` : ""}${linkOnly ? `<span class="link-badge" title="${escapeHtml(t("linkHint"))}">↗ ${t("linkOnly")}</span>` : ""}</time>
       </button>
       <div class="card-actions">
-        <button data-save="${escapeHtml(item.id)}" aria-pressed="${saved}">${saved ? t("unsave") : t("save")}</button>
-        ${saved ? `<button data-tag="${escapeHtml(item.id)}" data-value="like" aria-pressed="${item.tag === "like"}">${t("tagLike")}</button><button data-tag="${escapeHtml(item.id)}" data-value="later" aria-pressed="${item.tag === "later"}">${t("tagLater")}</button>` : ""}
-        ${canDismiss ? `<button class="card-dismiss" data-dismiss="${escapeHtml(item.id)}">${t("dismiss")} ✕</button>` : ""}
+        <button class="card-primary" data-save="${escapeHtml(item.id)}" aria-pressed="${saved}">${saved ? t("unsave") : t("save")}</button>
+        ${canTag && saved ? `<button data-tag="${escapeHtml(item.id)}" data-value="like" aria-pressed="${item.tag === "like"}">${t("tagLike")}</button><button data-tag="${escapeHtml(item.id)}" data-value="later" aria-pressed="${item.tag === "later"}">${t("tagLater")}</button>` : ""}
+        ${canDismiss ? `<button class="card-dismiss" data-dismiss="${escapeHtml(item.id)}" aria-label="${escapeHtml(t("dismiss"))}">✕</button>` : ""}
       </div>
     </article>`;
 }
@@ -340,7 +431,7 @@ async function showArticle(id) {
   state.selected = id;
   state.article = null;
   renderFeed();
-  articleContainer().innerHTML = '<p class="empty" role="status">Loading article…</p>';
+  articleContainer().innerHTML = `<p class="empty" role="status">${escapeHtml(t("loadingArticle"))}</p>`;
   if (state.view !== "library") openReader();
   else if (window.matchMedia("(max-width: 900px)").matches) $("detail").scrollIntoView({ behavior: "smooth" });
   try {
@@ -350,7 +441,7 @@ async function showArticle(id) {
     renderArticle();
   } catch (error) {
     if (controller !== articleRequest || error.name === "AbortError") return;
-    articleContainer().innerHTML = `<p class="error" role="alert">${escapeHtml(error.message)}</p><button id="retry-article">Retry article</button>`;
+    articleContainer().innerHTML = `<p class="error" role="alert">${escapeHtml(error.message)}</p><button id="retry-article">${escapeHtml(t("retryArticle"))}</button>`;
     $("retry-article").addEventListener("click", () => showArticle(id));
   }
 }
@@ -466,14 +557,14 @@ async function pollSync() {
     if (generation !== syncGeneration) return;
     if (revision !== null && revision !== sync.revision) $("updates").hidden = false;
     revision = sync.revision;
-    const failure = sync.failed_sources ? ` · ${sync.failed_sources} source(s) failed; retry scheduled` : "";
-    $("sync-status").textContent = !sync.enabled ? "Automatic updates paused"
-      : sync.running ? `Updating ${sync.current_source}…${failure}`
-        : sync.last_checked_at ? `Checked ${new Date(sync.last_checked_at).toLocaleTimeString()}${failure}`
-          : sync.last_error ? "Update check failed · retry scheduled" : "Automatic updates starting…";
-    $("sync-status").title = sync.last_error || "Sources update at their configured intervals while this server is running.";
+    const failure = sync.failed_sources ? ` · ${sync.failed_sources}${t("syncFailures")}` : "";
+    $("sync-status").textContent = !sync.enabled ? t("syncPaused")
+      : sync.running ? `${t("syncUpdating")} ${sync.current_source}…${failure}`
+        : sync.last_checked_at ? `${t("syncChecked")} ${new Date(sync.last_checked_at).toLocaleTimeString()}${failure}`
+          : sync.last_error ? t("syncFailed") : t("syncStarting");
+    $("sync-status").title = sync.last_error || t("syncTitle");
   } catch (error) {
-    if (generation === syncGeneration && error.name !== "AbortError") $("sync-status").textContent = "Update status unavailable · retrying";
+    if (generation === syncGeneration && error.name !== "AbortError") $("sync-status").textContent = t("syncUnavailable");
   } finally {
     if (!document.hidden && generation === syncGeneration) syncTimer = setTimeout(pollSync, 5000);
   }
@@ -484,7 +575,7 @@ function escapeHtml(value) {
 }
 
 function formatDate(value) {
-  if (!value) return "undated";
+  if (!value) return t("undated");
   const utc = /(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`;
   return new Date(utc).toLocaleDateString();
 }
@@ -509,13 +600,13 @@ $("sidebar").addEventListener("click", (event) => {
   if (refresh) {
     refresh.disabled = true;
     api(`/sources/${encodeURIComponent(refresh.dataset.refreshSource)}/fetch`, { method: "POST" })
-      .then((result) => { loadSources(); resetFeed(); window.alert(result.ok ? `Fetched ${result.inserted} new article(s).` : `Fetch failed: ${result.error || "unknown error"}`); })
+      .then((result) => { loadSources(); resetFeed(); window.alert(result.ok ? `${t("fetchDone")}${result.inserted}${t("fetchDoneTail")}` : `${t("fetchFailed")}${result.error || t("unknownError")}`); })
       .catch((error) => window.alert(error.message))
       .finally(() => { refresh.disabled = false; });
     return;
   }
   if (remove) {
-    if (!window.confirm("Remove this source and its downloaded articles?")) return;
+    if (!window.confirm(t("removeConfirm"))) return;
     api(`/sources/${encodeURIComponent(remove.dataset.removeSource)}`, { method: "DELETE" })
       .then(() => { state.source = ""; loadSources(); resetFeed(); })
       .catch((error) => window.alert(error.message));
@@ -572,6 +663,18 @@ $("query").addEventListener("input", (event) => {
   searchTimer = setTimeout(resetFeed, 250);
 });
 $("query").addEventListener("keydown", (event) => { if (event.key === "Enter") resetFeed(); });
+// The "more tools" drawer: close it after a choice, on an outside click, or
+// with Escape. <summary> keeps the whole thing keyboard operable for free.
+const toolsMenu = $("tools-menu");
+$("tools-panel").addEventListener("click", (event) => {
+  if (event.target.closest("button")) toolsMenu.open = false;
+});
+document.addEventListener("click", (event) => {
+  if (toolsMenu.open && !toolsMenu.contains(event.target)) toolsMenu.open = false;
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && toolsMenu.open) toolsMenu.open = false;
+});
 $("refresh").addEventListener("click", () => (state.view === "today" ? loadToday() : resetFeed()));
 $("theme").addEventListener("click", () => {
   const dark = document.documentElement.dataset.theme !== "dark";
@@ -598,7 +701,7 @@ $("import").addEventListener("click", () => $("import-file").click());
 $("backup").addEventListener("click", async () => {
   try {
     const response = await fetch("/backup", { cache: "no-store", headers: withToken() });
-    if (!response.ok) throw new Error("Backup failed");
+    if (!response.ok) throw new Error(t("backupFailed"));
     const blob = new Blob([JSON.stringify(await response.json(), null, 2)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -613,11 +716,11 @@ $("import-file").addEventListener("change", async (event) => {
   try {
     const parsed = JSON.parse(await file.text());
     const body = Array.isArray(parsed) ? { items: parsed } : parsed;
-    if (!body || typeof body !== "object") throw new Error("Invalid backup file.");
+    if (!body || typeof body !== "object") throw new Error(t("invalidBackup"));
     const result = await api("/import/content", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     await loadSources();
     await resetFeed();
-    window.alert(`Imported ${result.imported} article(s); skipped ${result.skipped}.`);
+    window.alert(`${t("importDone")}${result.imported}${t("importDoneMid")}${result.skipped}${t("importDoneTail")}`);
   } catch (error) { window.alert(error.message); }
   event.target.value = "";
 });

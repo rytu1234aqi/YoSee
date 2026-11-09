@@ -18,11 +18,16 @@
         <button class="view-button" data-view="today" data-i18n="viewToday">今天刷过</button>
       </nav>
       <label class="search"><span class="sr-only" data-i18n="search">搜索</span><input id="query" data-i18n-placeholder="searchPlaceholder" placeholder="搜索文章" /></label>
-      <button id="refresh" class="icon-button" title="刷新文章" aria-label="刷新文章">↻</button>
-      <button id="import" class="icon-button" title="导入文章" aria-label="导入文章">⇧</button>
-      <button id="backup" class="icon-button" title="完整备份" aria-label="完整备份">⤓</button>
-      <button id="theme" class="icon-button" title="切换深色模式" aria-label="切换深色模式">◐</button>
-      <button id="language" class="language-button" title="切换语言" aria-label="切换语言">EN</button>
+      <details class="tools-menu" id="tools-menu">
+        <summary class="tools-trigger" data-i18n-title="moreTools" data-i18n-aria-label="moreTools" title="更多工具" aria-label="更多工具">⋯</summary>
+        <div class="tools-panel" id="tools-panel">
+          <button type="button" id="refresh" class="tool-button"><span class="tool-icon">↻</span><span data-i18n="refreshAction">刷新文章</span></button>
+          <button type="button" id="import" class="tool-button"><span class="tool-icon">⇧</span><span data-i18n="importAction">导入文章</span></button>
+          <button type="button" id="backup" class="tool-button"><span class="tool-icon">⤓</span><span data-i18n="backupAction">完整备份</span></button>
+          <button type="button" id="theme" class="tool-button"><span class="tool-icon">◐</span><span data-i18n="themeAction">切换深色模式</span></button>
+          <button type="button" id="language" class="tool-button"><span class="tool-icon" id="language-code">EN</span><span data-i18n="languageAction">切换语言</span></button>
+        </div>
+      </details>
       <span id="debug-info" class="debug-info" hidden></span>
     </header>
     <main class="layout">
@@ -59,48 +64,48 @@
       </section>
       <div class="sash" data-sash="feed" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-aria-label="resizeFeed" data-i18n-title="resizeFeed" aria-label="拖动调整文章列表宽度，双击恢复默认" title="拖动调整文章列表宽度，双击恢复默认"></div>
       <article class="detail-pane" id="detail">
-        <div class="empty">Select an article to read</div>
+        <div class="empty" data-i18n="selectArticle">从左边选一篇文章开始读</div>
       </article>
     </main>
     <dialog id="source-dialog">
       <form method="dialog" id="source-form">
-        <h2>Add source</h2>
-        <label>Name<input name="name" required maxlength="200" placeholder="My favorite blog" /></label>
-        <label>Website or RSS/Atom URL<input name="feed_url" type="url" required placeholder="https://example.com" /></label>
-        <label>Check every (minutes)<input name="interval" type="number" min="5" max="43200" value="360" required /></label>
+        <h2 data-i18n="addSourceTitle">添加来源</h2>
+        <label><span data-i18n="sourceName">名称</span><input name="name" required maxlength="200" placeholder="My favorite blog" /></label>
+        <label><span data-i18n="sourceUrl">网站或 RSS/Atom 地址</span><input name="feed_url" type="url" required placeholder="https://example.com" /></label>
+        <label><span data-i18n="sourceInterval">每隔多少分钟检查一次</span><input name="interval" type="number" min="5" max="43200" value="360" required /></label>
         <p id="source-form-error" class="error" role="alert" hidden></p>
-        <button type="button" id="advanced-html-toggle" class="text-button">Configure a page without RSS</button>
+        <button type="button" id="advanced-html-toggle" class="text-button" data-i18n="advancedHtml">这个网站没有 RSS，手动配置</button>
         <div id="html-config" hidden>
-          <label>Article item CSS selector<input name="item_selector" placeholder="article.post" /></label>
-          <label>Title CSS selector<input name="title_selector" placeholder="h2 a" /></label>
-          <label>Link CSS selector<input name="link_selector" placeholder="h2 a" /></label>
-          <label>Summary CSS selector (optional)<input name="summary_selector" placeholder=".excerpt" /></label>
+          <label><span data-i18n="itemSelector">文章条目选择器</span><input name="item_selector" placeholder="article.post" /></label>
+          <label><span data-i18n="titleSelector">标题选择器</span><input name="title_selector" placeholder="h2 a" /></label>
+          <label><span data-i18n="linkSelector">链接选择器</span><input name="link_selector" placeholder="h2 a" /></label>
+          <label><span data-i18n="summarySelector">摘要选择器（可选）</span><input name="summary_selector" placeholder=".excerpt" /></label>
         </div>
         <label><span data-i18n="keywordsLabel">只要包含这些词</span><input name="keywords" placeholder="shader, rendering（留空表示都要）" /></label>
         <p class="form-note" data-i18n="keywordsHint">用逗号分开。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。</p>
-        <p class="form-note">You can pause or edit a source after adding it from its source settings.</p>
-        <div class="dialog-actions"><button value="cancel">Cancel</button><button id="source-submit" value="default">Add and fetch</button></div>
+        <p class="form-note" data-i18n="sourceFormNote">添加之后，可以在来源设置里暂停或修改。</p>
+        <div class="dialog-actions"><button value="cancel" data-i18n="cancel">取消</button><button id="source-submit" value="default" data-i18n="addAndFetch">添加并抓取</button></div>
       </form>
     </dialog>
     <dialog id="settings-dialog">
       <form method="dialog" id="settings-form">
-        <h2>Source settings</h2>
+        <h2 data-i18n="settingsTitle">来源设置</h2>
         <input type="hidden" name="id" />
-        <label>Name<input name="name" required maxlength="200" /></label>
-        <label>Check every (minutes)<input name="interval" type="number" min="5" max="43200" required /></label>
-        <label class="check-row"><input name="enabled" type="checkbox" /> Automatic updates enabled</label>
+        <label><span data-i18n="sourceName">名称</span><input name="name" required maxlength="200" /></label>
+        <label><span data-i18n="sourceInterval">每隔多少分钟检查一次</span><input name="interval" type="number" min="5" max="43200" required /></label>
+        <label class="check-row"><input name="enabled" type="checkbox" /><span data-i18n="autoUpdates">开启自动更新</span></label>
         <label><span data-i18n="keywordsLabel">只要包含这些词</span><input name="keywords" placeholder="shader, rendering（留空表示都要）" /></label>
         <p class="form-note" data-i18n="keywordsHint">用逗号分开。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。</p>
         <p id="settings-form-error" class="error" role="alert" hidden></p>
-        <div class="dialog-actions"><button value="cancel">Cancel</button><button id="settings-submit" value="default">Save</button></div>
+        <div class="dialog-actions"><button value="cancel" data-i18n="cancel">取消</button><button id="settings-submit" value="default" data-i18n="save">保存</button></div>
       </form>
     </dialog>
     <dialog id="runs-dialog">
-      <div class="runs-head"><h2 id="runs-title">Fetch history</h2><button id="runs-close" class="icon-button dark" aria-label="Close">×</button></div>
-      <div id="runs-list"><p class="empty">Loading history…</p></div>
+      <div class="runs-head"><h2 id="runs-title" data-i18n="fetchHistory">抓取记录</h2><button id="runs-close" class="icon-button dark" data-i18n-aria-label="close" aria-label="关闭">×</button></div>
+      <div id="runs-list"><p class="empty" data-i18n="historyLoading">正在读取记录…</p></div>
     </dialog>
     <dialog id="reader-dialog" class="reader-dialog">
-      <div class="reader-head"><span data-i18n="readerTitle">读文章</span><button id="reader-close" class="icon-button dark" aria-label="Close">×</button></div>
+      <div class="reader-head"><span data-i18n="readerTitle">读文章</span><button id="reader-close" class="icon-button dark" data-i18n-aria-label="close" aria-label="关闭">×</button></div>
       <article id="reader-body" class="reader-body"></article>
     </dialog>
     <input id="import-file" type="file" accept="application/json,.json" hidden />
