@@ -24,6 +24,7 @@ from starlette.responses import Response
 from server import __version__
 from server.backup import BackupManager, default_backup_dir
 from server.cleanup import CleanupManager
+from server.covers import first_image_url
 from server.database.session import create_db_engine, create_session_factory, get_database_url
 from server.ingestion.dedup import canonical_url_hash
 from server.ingestion.fetcher import Fetcher
@@ -69,6 +70,7 @@ class FeedItem(BaseModel):
     is_read: bool = False
     saved: bool = False
     tag: str | None = None
+    cover_url: str | None = None
 
 
 class SourceItem(BaseModel):
@@ -432,6 +434,22 @@ class CleanupRunResult(BaseModel):
     error: str | None = None
 
 
+def _cover_for(item: ContentItem) -> str | None:
+    """Return a cover for new rows and for older rows that stored none.
+
+    Thousands of articles predate cover extraction, but many of them still
+    have an image inside the saved body or summary. Derive it at read time
+    instead of migrating the database.
+    """
+    stored = item.cover_url
+    if isinstance(stored, str) and stored.lower().startswith(("http://", "https://")):
+        return stored
+    from_body = first_image_url(item.content_html, item.canonical_url)
+    if from_body is not None:
+        return from_body
+    return first_image_url(item.summary, item.canonical_url)
+
+
 def _read_feed(
     session: Session,
     *,
@@ -504,6 +522,7 @@ def _read_feed(
             is_read=bool(is_read),
             saved=bool(saved),
             tag=tag,
+            cover_url=_cover_for(item),
         )
         for item, source_name, is_read, saved, tag in session.execute(statement)
     ]
@@ -1081,6 +1100,7 @@ def create_app(
                 author=item.author,
                 published_at=item.published_at,
                 canonical_url=item.canonical_url,
+                cover_url=_cover_for(item),
                 content_html=sanitize_html(item.content_html),
                 content_text=item.content_text,
                 source_url=safe_http_url(item.source_url) or None,

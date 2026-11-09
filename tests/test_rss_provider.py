@@ -9,7 +9,7 @@ import httpx
 import pytest
 from server.ingestion import FetchError, ParseError, ProviderError
 from server.ingestion.fetcher import Fetcher
-from server.ingestion.providers.generic.rss import RSSProvider
+from server.ingestion.providers.generic.rss import RSSProvider, _cover_url
 from server.models import ContentType, Source
 
 _FEEDS = Path(__file__).parent / "fixtures" / "feeds"
@@ -184,3 +184,108 @@ def test_normalize_rejects_an_unexpected_raw_item() -> None:
 
     with pytest.raises(ParseError):
         asyncio.run(provider.normalize({"title": "nope"}))
+
+
+def test_cover_url_prefers_media_thumbnail() -> None:
+    item = {
+        "media_thumbnail": [{"url": "https://example.test/thumb.png"}],
+        "media_content": [{"url": "https://example.test/full.png", "medium": "image"}],
+    }
+    assert _cover_url(item, _FEED_URL) == "https://example.test/thumb.png"
+
+
+def test_cover_url_accepts_only_image_media_content() -> None:
+    item = {
+        "media_content": [
+            {"url": "https://example.test/clip.mp4", "type": "video/mp4"},
+            {"url": "https://example.test/photo.jpg", "type": "image/jpeg"},
+        ]
+    }
+    assert _cover_url(item, _FEED_URL) == "https://example.test/photo.jpg"
+
+    by_medium = {"media_content": [{"url": "https://example.test/m.png", "medium": "image"}]}
+    assert _cover_url(by_medium, _FEED_URL) == "https://example.test/m.png"
+
+
+def test_cover_url_reads_image_enclosures() -> None:
+    links = {
+        "links": [
+            {"rel": "alternate", "href": "https://example.test/post", "type": "text/html"},
+            {"rel": "enclosure", "href": "https://example.test/pic.png", "type": "image/png"},
+        ]
+    }
+    assert _cover_url(links, _FEED_URL) == "https://example.test/pic.png"
+
+    enclosures = {"enclosures": [{"url": "https://example.test/e.png", "type": "image/png"}]}
+    assert _cover_url(enclosures, _FEED_URL) == "https://example.test/e.png"
+
+
+def test_cover_url_extracts_img_from_html() -> None:
+    summary = {"summary": "<p>Hi</p><IMG SRC='https://example.test/in-summary.jpg'>"}
+    assert _cover_url(summary, _FEED_URL) == "https://example.test/in-summary.jpg"
+
+    content = {"content": [{"value": '<p><img src="https://example.test/in-content.png"></p>'}]}
+    assert _cover_url(content, _FEED_URL) == "https://example.test/in-content.png"
+
+
+def test_cover_url_resolves_relative_urls() -> None:
+    item = {"media_thumbnail": [{"url": "/images/cover.png"}]}
+    assert _cover_url(item, _FEED_URL) == "https://www.redblobgames.com/images/cover.png"
+
+
+def test_cover_url_rejects_non_http_schemes() -> None:
+    for raw in ("data:image/png;base64,AAAA", "javascript:alert(1)", "ftp://x.test/a.png", ""):
+        assert _cover_url({"media_thumbnail": [{"url": raw}]}, _FEED_URL) is None
+
+
+@pytest.mark.parametrize(
+    "word",
+    [
+        "icon", "avatar", "emoji", "pixel", "tracking",
+        "badge", "sponsor", "logo", "1x1", "gravatar",
+    ],
+)
+def test_cover_url_skips_icon_and_tracking_urls(word: str) -> None:
+    item = {"media_thumbnail": [{"url": f"https://example.test/{word}.png"}]}
+    assert _cover_url(item, _FEED_URL) is None
+
+
+def test_cover_url_continues_past_a_skipped_icon() -> None:
+    item = {
+        "media_thumbnail": [
+            {"url": "https://example.test/icon.png"},
+            {"url": "https://example.test/real-cover.png"},
+        ]
+    }
+    assert _cover_url(item, _FEED_URL) == "https://example.test/real-cover.png"
+
+
+def test_cover_url_tolerates_malformed_structures() -> None:
+    malformed = (
+        None,
+        {"media_thumbnail": "not-a-list"},
+        {"media_thumbnail": [None, 42, {"url": 123}]},
+        {"media_content": [{"url": None, "type": "image/png"}]},
+        {"links": "oops", "enclosures": [{"type": 7}]},
+        {"summary": 123, "content": [{"value": None}]},
+    )
+    for item in malformed:
+        assert _cover_url(item, _FEED_URL) is None
+
+
+def test_cover_url_returns_none_without_images() -> None:
+    assert _cover_url({}, _FEED_URL) is None
+    item = {"title": "x", "links": [{"rel": "alternate", "href": "/post"}]}
+    assert _cover_url(item, _FEED_URL) is None
+
+
+def test_normalize_keeps_the_extracted_cover_url() -> None:
+    body = b"""<?xml version="1.0"?>
+    <rss version="2.0"><channel><title>Covers</title>
+    <link>https://example.test/</link>
+    <item><title>Cover post</title>
+    <link>https://example.test/post</link>
+    <enclosure url="https://example.test/cover.png" type="image/png" length="123"/>
+    </item></channel></rss>"""
+    items = asyncio.run(_provider(body).load(_source()))
+    assert items[0].cover_url == "https://example.test/cover.png"

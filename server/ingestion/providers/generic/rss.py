@@ -4,11 +4,13 @@ HTTP stays in Fetcher. This module parses the document and maps entries onto
 ``NormalizedContentItem``. It does not write the database.
 """
 
+import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import struct_time
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 
@@ -39,6 +41,7 @@ class RssEntry:
     updated_at: datetime | None
     language: str | None
     tags: tuple[str, ...]
+    cover_url: str | None
 
 
 class RSSProvider(SourceAdapter):
@@ -96,6 +99,7 @@ class RSSProvider(SourceAdapter):
             canonical_url=raw_item.link,
             source_url=raw_item.feed_url,
             author=raw_item.author,
+            cover_url=raw_item.cover_url,
             language=raw_item.language,
             published_at=raw_item.published_at,
             updated_at=raw_item.updated_at,
@@ -145,6 +149,7 @@ def _entry(item: Any, feed_url: str, source_id: str, language: str | None) -> Rs
         updated_at=_when(item, "updated_parsed"),
         language=language,
         tags=_tags(item.get("tags") if "tags" in item else None),
+        cover_url=_cover_url(item, feed_url),
     )
 
 
@@ -249,3 +254,107 @@ def _text(value: Any) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+_COVER_SKIP_WORDS = (
+    "icon",
+    "avatar",
+    "emoji",
+    "pixel",
+    "tracking",
+    "badge",
+    "sponsor",
+    "logo",
+    "1x1",
+    "gravatar",
+)
+# \x27 is a single quote, which cannot appear in this single-quoted raw string.
+_IMG_SRC_RE = re.compile(
+    r'<img\b[^>]*?\ssrc\s*=\s*(["\x27])(.*?)\1', re.IGNORECASE | re.DOTALL
+)
+
+
+def _cover_url(item: Any, feed_url: str) -> str | None:
+    """Pick the first usable image for a feed entry; never raises on bad data."""
+
+    try:
+        for raw in _cover_candidates(item):
+            resolved = _clean_cover_url(raw, feed_url)
+            if resolved is not None:
+                return resolved
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return None
+
+
+def _cover_candidates(item: Any) -> Iterator[str]:
+    if not isinstance(item, dict):
+        return
+    # 1. media:thumbnail — feedparser gives a list of dicts carrying a url.
+    for block in _dicts(item.get("media_thumbnail")):
+        url = _text(block.get("url"))
+        if url:
+            yield url
+    # 2. media:content — only the image entries.
+    for block in _dicts(item.get("media_content")):
+        medium = str(block.get("medium") or "").lower()
+        kind = str(block.get("type") or "").lower()
+        if medium == "image" or kind.startswith("image/"):
+            url = _text(block.get("url"))
+            if url:
+                yield url
+    # 3. enclosure image links. Atom links carry rel=enclosure; the separate
+    #    enclosures list already implies it and has no rel field.
+    for group, needs_rel in (
+        (item.get("links"), True),
+        (item.get("enclosures"), False),
+    ):
+        for link in _dicts(group):
+            if needs_rel and link.get("rel") != "enclosure":
+                continue
+            if not str(link.get("type") or "").lower().startswith("image/"):
+                continue
+            for key in ("href", "url"):
+                url = _text(link.get(key))
+                if url:
+                    yield url
+    # 4. the first <img src> in the summary / content HTML.
+    summary = item.get("summary")
+    if isinstance(summary, str):
+        yield from _img_sources(summary)
+    content = item.get("content")
+    if isinstance(content, str):
+        yield from _img_sources(content)
+    for block in _dicts(content):
+        value = block.get("value")
+        if isinstance(value, str):
+            yield from _img_sources(value)
+
+
+def _img_sources(html: str) -> Iterator[str]:
+    for match in _IMG_SRC_RE.finditer(html):
+        url = match.group(2).strip()
+        if url:
+            yield url
+
+
+def _dicts(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [block for block in value if isinstance(block, dict)]
+
+
+def _clean_cover_url(raw: str, feed_url: str) -> str | None:
+    stripped = raw.strip()
+    if not stripped:
+        return None
+    try:
+        resolved = urljoin(feed_url, stripped)
+        parsed = urlparse(resolved)
+    except (TypeError, ValueError):
+        return None
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if any(word in resolved.lower() for word in _COVER_SKIP_WORDS):
+        return None
+    return resolved

@@ -98,3 +98,44 @@ test("app.js wires view switching, card actions, tags and saved-link export", ()
   }
   assert.match(source, /^initResizableLayout\(\);$/m);
 });
+
+test("stream cards render a cover image or a lettered placeholder", () => {
+  const js = read("app.js");
+  for (const needle of [
+    "coverMarkup",
+    "card-cover",
+    "card-cover-fallback",
+    "bindCoverFallbacks()",
+    'referrerpolicy="no-referrer"',
+    'data-cover="image"',
+    'data-cover="placeholder"',
+    "plainText",
+    "cardSummary",
+    "articleFragment(item, {",
+    "noBody",
+    "openOriginal",
+  ]) {
+    assert.ok(js.includes(needle), `missing ${needle}`);
+  }
+  assert.ok(!js.includes("summaryText("), "stale summaryText call remains");
+  assert.match(js, /<span class="card-cover"/);
+  assert.ok(
+    !js.includes('<div class="card-cover"'),
+    "cover must be phrasing content inside a button"
+  );
+});
+
+test("cover and link-only styles exist for both themes", () => {
+  const css = read("app.css");
+  for (const needle of [
+    ".card-cover",
+    "aspect-ratio",
+    "object-fit",
+    'data-cover="placeholder"',
+    ".no-body",
+    ':root[data-theme="dark"] .card-open .card-cover',
+  ]) {
+    assert.ok(css.includes(needle), `missing ${needle}`);
+  }
+  assert.match(css, /\.card-open \.card-cover-fallback/);
+});

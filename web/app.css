@@ -140,6 +140,19 @@ body[data-view="stream"] .card-open strong, body[data-view="saved"] .card-open s
 .card-actions .card-dismiss { margin-left: auto; color: #71808e; }
 :root[data-theme="dark"] .card-actions { border-top-color: #2b3b49; }
 :root[data-theme="dark"] .card-actions button { background: #17232e; color: #dce5ec; border-color: #2b3b49; }
+/* ---- cover images and link-only notes ---- */
+/* .card-open span already sets display:block, so these need two-class specificity. */
+.card-open .card-cover { position: relative; display: block; width: 100%; aspect-ratio: 2.2 / 1; margin: 0 0 16px; overflow: hidden; border-radius: 8px; background: linear-gradient(135deg, #dcebf3, #eef4f8); }
+.card-open .card-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 0; }
+.card-open .card-cover-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 44px; font-weight: 700; color: #7fa8bd; }
+.card-cover[data-cover="placeholder"] img { display: none; }
+body[data-view="library"] .card-cover { display: none; }
+:root[data-theme="dark"] .card-open .card-cover { background: linear-gradient(135deg, #1b3242, #22394a); }
+:root[data-theme="dark"] .card-open .card-cover-fallback { color: #6f97ac; }
+.no-body { margin: 20px 0; padding: 22px; border: 1px dashed #c8d3dc; border-radius: 10px; background: #f8fbfc; color: #61707d; font-size: 15px; }
+.no-body p { margin: 0 0 10px; }
+.no-body a { color: #1680a9; font-weight: 600; }
+:root[data-theme="dark"] .no-body { border-color: #2b3b49; background: #17232e; color: #aebdc8; }
 /* ---- collection filters ---- */
 .saved-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 4px 16px; }
 .tag-filter { border: 1px solid #c8d3dc; border-radius: 16px; padding: 5px 12px; background: white; color: #24536e; font-size: 12px; }
