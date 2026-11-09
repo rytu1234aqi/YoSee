@@ -111,6 +111,10 @@ test("stream cards render a cover image or a lettered placeholder", () => {
     'data-cover="placeholder"',
     "plainText",
     "cardSummary",
+    "sourceHue",
+    "--cover-hue",
+    "card-cover-mark",
+    "card-cover-name",
     "articleFragment(item, {",
     "noBody",
     "openOriginal",
@@ -133,6 +137,8 @@ test("cover and link-only styles exist for both themes", () => {
     "object-fit",
     'data-cover="placeholder"',
     ".no-body",
+    "--cover-hue",
+    '.card-cover[data-cover="image"] .card-cover-fallback',
     ':root[data-theme="dark"] .card-open .card-cover',
   ]) {
     assert.ok(css.includes(needle), `missing ${needle}`);

@@ -215,10 +215,19 @@ function resetFeed() {
   return feed.reset(filters);
 }
 
+// Every source gets a stable hue so a stream of link-only cards still has
+// visual variety instead of twenty identical pale boxes.
+function sourceHue(name) {
+  let hash = 7;
+  for (const char of String(name || "")) hash = (hash * 31 + char.codePointAt(0)) % 360;
+  return hash;
+}
+
 function coverMarkup(item) {
   const url = safeUrl(item.cover_url);
-  const initial = (item.source_name || item.title || "•").trim().charAt(0).toUpperCase() || "•";
-  const fallback = `<span class="card-cover-fallback" aria-hidden="true">${escapeHtml(initial)}</span>`;
+  const label = item.source_name || item.title || "•";
+  const initial = label.trim().charAt(0).toUpperCase() || "•";
+  const fallback = `<span class="card-cover-fallback" aria-hidden="true"><span class="card-cover-mark">${escapeHtml(initial)}</span><span class="card-cover-name">${escapeHtml(label)}</span></span>`;
   if (!url) return `<span class="card-cover" data-cover="placeholder">${fallback}</span>`;
   return `<span class="card-cover" data-cover="image"><img src="${escapeHtml(url)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />${fallback}</span>`;
 }
@@ -241,7 +250,8 @@ function bindCoverFallbacks() {
 function renderCard(item) {
   const stream = state.view !== "library";
   const saved = !!item.saved;
-  return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""}" data-id="${escapeHtml(item.id)}">
+  const hue = sourceHue(item.source_name || item.title);
+  return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""}" data-id="${escapeHtml(item.id)}" style="--cover-hue:${hue}">
       <button class="card-open" data-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.title)}">
         ${stream ? coverMarkup(item) : ""}
         <span class="card-source">${escapeHtml(item.source_name)}${item.is_read ? ` · ${t("seen")}` : ""}</span>
