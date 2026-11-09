@@ -5,6 +5,7 @@ import {
   FeedStore,
   filterByTag,
   hideDismissed,
+  opensOriginal,
   sortForStream,
 } from "../../web/feed-store.mjs";
 
@@ -144,4 +145,32 @@ test("cover and link-only styles exist for both themes", () => {
     assert.ok(css.includes(needle), `missing ${needle}`);
   }
   assert.match(css, /\.card-open \.card-cover-fallback/);
+});
+
+test("only link-only cards open the original site directly", () => {
+  assert.equal(opensOriginal({ id: "a", has_body: false }), true);
+  assert.equal(opensOriginal({ id: "b", has_body: true }), false);
+  // Old payloads without the field keep the reader behaviour, never a surprise tab.
+  assert.equal(opensOriginal({ id: "c" }), false);
+  assert.equal(opensOriginal(null), false);
+});
+
+test("app.js routes card clicks through the link-only shortcut", () => {
+  const js = read("app.js");
+  for (const needle of [
+    "opensOriginal",
+    "function openItem(",
+    "if (open) openItem(open.dataset.open);",
+    'window.open(url, "_blank", "noopener,noreferrer")',
+    "updateState(item, { is_read: true })",
+    "link-badge",
+    "linkOnly",
+    "linkHint",
+    "link-only",
+  ]) {
+    assert.ok(js.includes(needle), `missing ${needle}`);
+  }
+  // Keyboard paging stays inside the app; only an explicit card tap opens a tab.
+  assert.match(js, /if \(items\[index\]\) showArticle\(items\[index\]\.id\);/);
+  assert.ok(read("feed-store.mjs").includes("item.has_body === false"));
 });

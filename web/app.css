@@ -158,6 +158,8 @@ body[data-view="stream"] .feed-card:hover, body[data-view="saved"] .feed-card:ho
 :root[data-theme="dark"] .card-open .card-cover-mark { background: rgb(255 255 255 / .1); color: hsl(var(--cover-hue, 200) 55% 82%); }
 :root[data-theme="dark"] .card-open .card-cover-name { color: hsl(var(--cover-hue, 200) 40% 78%); }
 :root[data-theme="dark"] body[data-view="stream"] .card-source, :root[data-theme="dark"] body[data-view="saved"] .card-source { background: hsl(var(--cover-hue, 200) 34% 24%); color: hsl(var(--cover-hue, 200) 55% 82%); }
+.card-open .link-badge { display: inline-block; margin: 0 0 0 8px; padding: 2px 8px; border-radius: 10px; background: #eaf4f8; color: #24536e; font-size: 11px; font-weight: 500; }
+:root[data-theme="dark"] .card-open .link-badge { background: #1b3342; color: #a9cfe0; }
 .no-body { margin: 20px 0; padding: 22px; border: 1px dashed #c8d3dc; border-radius: 10px; background: #f8fbfc; color: #61707d; font-size: 15px; }
 .no-body p { margin: 0 0 10px; }
 .no-body a { color: #1680a9; font-weight: 600; }

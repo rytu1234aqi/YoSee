@@ -80,6 +80,12 @@ export function hideDismissed(items, dismissed) {
   return items.filter((item) => !dismissed.has(item.id));
 }
 
+// A link-only card has no stored article text. Clicking it should go straight
+// to the original site instead of opening an empty reader.
+export function opensOriginal(item) {
+  return !!item && item.has_body === false;
+}
+
 // The collection page has a small "liked / read later" filter.
 export function filterByTag(items, tag) {
   if (!tag) return items;

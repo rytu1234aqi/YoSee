@@ -4,6 +4,7 @@ import asyncio
 import base64
 import binascii
 import hashlib
+import html
 import math
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -71,6 +72,7 @@ class FeedItem(BaseModel):
     saved: bool = False
     tag: str | None = None
     cover_url: str | None = None
+    has_body: bool = False
 
 
 class SourceItem(BaseModel):
@@ -434,6 +436,42 @@ class CleanupRunResult(BaseModel):
     error: str | None = None
 
 
+_NO_BODY_LABELS = frozenset(
+    {
+        "comments",
+        "comment",
+        "read more",
+        "continue reading",
+        "link",
+        "discuss",
+        "discussion",
+        "原文链接",
+        "查看原文",
+        "阅读全文",
+    }
+)
+_SCRIPT_STYLE = re.compile(
+    r"<\s*(?:script|style)\b[^>]*>[\s\S]*?<\s*/\s*(?:script|style)\s*>",
+    re.IGNORECASE,
+)
+_HTML_TAG = re.compile(r"<[^>]*>")
+
+
+def _has_body(item: ContentItem) -> bool:
+    """True when the stored article has text worth reading inside the app.
+
+    Link-aggregator feeds often keep only a URL and a ``Comments`` link. Those
+    rows should open the original site directly instead of showing an empty
+    reader, so the feed tells the UI which kind of card it is rendering.
+    """
+    raw = item.content_html or item.content_text
+    if not raw or not raw.strip():
+        return False
+    cleaned = _SCRIPT_STYLE.sub(" ", html.unescape(raw))
+    text = re.sub(r"\s+", " ", _HTML_TAG.sub(" ", cleaned)).strip()
+    return len(text) >= 24 and text.lower() not in _NO_BODY_LABELS
+
+
 def _cover_for(item: ContentItem) -> str | None:
     """Return a cover for new rows and for older rows that stored none.
 
@@ -523,6 +561,7 @@ def _read_feed(
             saved=bool(saved),
             tag=tag,
             cover_url=_cover_for(item),
+            has_body=_has_body(item),
         )
         for item, source_name, is_read, saved, tag in session.execute(statement)
     ]
@@ -1101,6 +1140,7 @@ def create_app(
                 published_at=item.published_at,
                 canonical_url=item.canonical_url,
                 cover_url=_cover_for(item),
+                has_body=_has_body(item),
                 content_html=sanitize_html(item.content_html),
                 content_text=item.content_text,
                 source_url=safe_http_url(item.source_url) or None,

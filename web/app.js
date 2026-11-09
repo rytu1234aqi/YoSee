@@ -2,7 +2,7 @@
 // time with the same content fingerprint as app.js itself. Keeping the source
 // plain lets asset_version() stay stable, while the browser always requests
 // URLs a stale WebView cache has never seen.
-import { FeedStore, sortForStream, hideDismissed, filterByTag } from "/static/feed-store.mjs";
+import { FeedStore, sortForStream, hideDismissed, filterByTag, opensOriginal } from "/static/feed-store.mjs";
 import { articleFragment, safeUrl, plainText } from "/static/article.mjs";
 import { initResizableLayout } from "/static/layout.mjs";
 
@@ -15,8 +15,8 @@ const state = {
 };
 const dismissed = new Set();
 const translations = {
-  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗" },
-  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately", noBody: "Only the link was saved — this site did not include the article text.", openOriginal: "Open original ↗" },
+  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗", linkOnly: "只有链接", linkHint: "点卡片会直接打开原网站" },
+  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately", noBody: "Only the link was saved — this site did not include the article text.", openOriginal: "Open original ↗", linkOnly: "Link only", linkHint: "Clicking opens the original site" },
 };
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
@@ -251,10 +251,11 @@ function renderCard(item) {
   const stream = state.view !== "library";
   const saved = !!item.saved;
   const hue = sourceHue(item.source_name || item.title);
-  return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""}" data-id="${escapeHtml(item.id)}" style="--cover-hue:${hue}">
+  const linkOnly = opensOriginal(item);
+  return `<article class="feed-card ${item.is_read ? "read" : ""} ${item.id === state.selected ? "selected" : ""} ${linkOnly ? "link-only" : ""}" data-id="${escapeHtml(item.id)}" style="--cover-hue:${hue}">
       <button class="card-open" data-open="${escapeHtml(item.id)}" aria-label="${escapeHtml(item.title)}">
         ${stream ? coverMarkup(item) : ""}
-        <span class="card-source">${escapeHtml(item.source_name)}${item.is_read ? ` · ${t("seen")}` : ""}</span>
+        <span class="card-source">${escapeHtml(item.source_name)}${item.is_read ? ` · ${t("seen")}` : ""}${linkOnly ? `<span class="link-badge" title="${escapeHtml(t("linkHint"))}">↗ ${t("linkOnly")}</span>` : ""}</span>
         <strong>${escapeHtml(item.title)}</strong>
         ${cardSummary(item)}
         <time>${formatDate(item.published_at)}${saved ? ` · ${t("saved")}` : ""}</time>
@@ -351,6 +352,19 @@ function renderArticle() {
 
 function findItem(id) {
   return feed.items.find((entry) => entry.id === id) || (state.selected === id ? state.article : null);
+}
+
+// Link-only cards have no stored text, so a reader dialog would be empty.
+// Send those straight to the original site and count the tap as "seen".
+function openItem(id) {
+  const item = findItem(id);
+  const url = opensOriginal(item) ? safeUrl(item && item.canonical_url) : null;
+  if (url) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    updateState(item, { is_read: true });
+    return;
+  }
+  showArticle(id);
 }
 
 async function updateState(item, change) {
@@ -493,7 +507,7 @@ $("feed").addEventListener("click", (event) => {
   const skip = event.target.closest("button[data-dismiss]");
   if (skip) { dismissCard(skip.dataset.dismiss); return; }
   const open = event.target.closest("button[data-open]");
-  if (open) showArticle(open.dataset.open);
+  if (open) openItem(open.dataset.open);
 });
 $("view-switch").addEventListener("click", (event) => {
   const button = event.target.closest("button.view-button");
