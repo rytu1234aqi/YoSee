@@ -24,6 +24,7 @@ from starlette.responses import Response
 
 from server import __version__
 from server.backup import BackupManager, default_backup_dir
+from server.body_fetch import BodyFetchManager
 from server.cleanup import CleanupManager
 from server.covers import first_image_url
 from server.database.session import create_db_engine, create_session_factory, get_database_url
@@ -436,6 +437,22 @@ class CleanupRunResult(BaseModel):
     error: str | None = None
 
 
+class BodyFetchStatus(BaseModel):
+    enabled: bool
+    pending: int = 0
+    attempted: int = 0
+    completed: int = 0
+    failed: int = 0
+    last_run_at: str | None = None
+    last_error: str | None = None
+
+
+class BodyFetchRunResult(BaseModel):
+    ok: bool
+    queued: int = 0
+    error: str | None = None
+
+
 _NO_BODY_LABELS = frozenset(
     {
         "comments",
@@ -497,6 +514,7 @@ def _read_feed(
     limit: int,
     offset: int = 0,
     cursor: FeedCursor | None = None,
+    seen_after: datetime | None = None,
 ) -> list[FeedItem]:
     statement = (
         select(
@@ -547,6 +565,11 @@ def _read_feed(
                     ContentItem.published_at.is_(None),
                 )
             )
+    if seen_after is not None:
+        statement = statement.where(ReadingState.read_at >= seen_after)
+        statement = statement.order_by(None).order_by(
+            ReadingState.read_at.desc(), ContentItem.id.desc()
+        )
     return [
         FeedItem(
             id=item.id,
@@ -578,6 +601,7 @@ def create_app(
     backup_dir: Path | None = None,
     auto_cleanup: bool = False,
     cleanup_keep_recent: int = 200,
+    auto_body_fetch: bool = False,
 ) -> FastAPI:
     """Create an API instance; ``database_url`` is injectable for tests.
 
@@ -598,6 +622,9 @@ def create_app(
     cleanup_manager = CleanupManager(
         factory, enabled=auto_cleanup, keep_recent=cleanup_keep_recent
     )
+    body_manager = BodyFetchManager(
+        factory, enabled=auto_body_fetch, fetcher_factory=fetcher_factory
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -607,9 +634,11 @@ def create_app(
         # snapshot of today before any old link is pruned.
         backup_manager.start()
         cleanup_manager.start()
+        body_manager.start()
         try:
             yield
         finally:
+            body_manager.stop()
             cleanup_manager.stop()
             backup_manager.stop()
             await scheduler.stop()
@@ -680,6 +709,36 @@ def create_app(
             deleted=int(status["last_deleted"]) if ok else 0,
             error=None if ok else (status["last_error"] or "cleanup disabled"),
         )
+
+    @app.get("/body-fetch/status", response_model=BodyFetchStatus)
+    def body_fetch_status() -> BodyFetchStatus:
+        return BodyFetchStatus.model_validate(body_manager.status())
+
+    @app.post("/body-fetch/run", response_model=BodyFetchRunResult)
+    def body_fetch_run() -> BodyFetchRunResult:
+        if not body_manager.status()["enabled"]:
+            return BodyFetchRunResult(ok=False, error="body fetch is disabled")
+        try:
+            queued = body_manager.enqueue_all_pending(force=True)
+            return BodyFetchRunResult(ok=True, queued=queued)
+        except Exception as exc:
+            return BodyFetchRunResult(ok=False, error=str(exc)[:300])
+
+    @app.get("/seen-today", response_model=list[FeedItem])
+    def seen_today() -> list[FeedItem]:
+        """Everything read since local midnight, most recent first."""
+        now_local = datetime.now().astimezone()
+        start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_utc = start_local.astimezone(UTC).replace(tzinfo=None)
+        with factory() as session:
+            return _read_feed(
+                session,
+                source_id=None,
+                q=None,
+                status="all",
+                limit=200,
+                seen_after=start_utc,
+            )
 
     @app.get("/export/saved-links", response_model=list[SavedLink])
     def export_saved_links() -> list[SavedLink]:
@@ -1180,6 +1239,10 @@ def create_app(
                 state.tag = None
             state.updated_at = now
             session.commit()
+            # Saving a link-only article asks the background worker to fetch
+            # its full text. This only queues work; the request never waits.
+            if state.saved:
+                body_manager.enqueue(content_id)
             # Keep the response shape stable for existing callers; the tag is
             # visible through /content/{id} and /feed instead.
             return {"is_read": state.is_read, "saved": state.saved}

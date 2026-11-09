@@ -86,6 +86,7 @@ def create_web_app(
     backup_dir: Path | None = None,
     auto_cleanup: bool = True,
     cleanup_keep_recent: int = 200,
+    auto_body_fetch: bool = True,
 ) -> FastAPI:
     """Build the production app with a per-process token for the local API.
 
@@ -104,6 +105,7 @@ def create_web_app(
         backup_dir=backup_dir,
         auto_cleanup=auto_cleanup,
         cleanup_keep_recent=cleanup_keep_recent,
+        auto_body_fetch=auto_body_fetch,
     )
     # Register before the /static mount so this exact path wins over the
     # catch-all StaticFiles route.

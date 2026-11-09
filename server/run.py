@@ -55,6 +55,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=200,
         help="always keep this many newest links (default: 200)",
     )
+    parser.add_argument(
+        "--no-body-fetch",
+        action="store_true",
+        help="do not fetch full article text when an item is saved",
+    )
     args = parser.parse_args(argv)
     if not 50 <= args.cleanup_keep <= 100_000:
         parser.error("--cleanup-keep must be between 50 and 100000")
@@ -85,6 +90,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         backup_dir=args.backup_dir,
         auto_cleanup=not args.no_auto_cleanup,
         cleanup_keep_recent=args.cleanup_keep,
+        auto_body_fetch=not args.no_body_fetch,
     )
     uvicorn.run(app, host=args.host, port=args.port, reload=False)
     return 0

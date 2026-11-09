@@ -10,13 +10,15 @@ const $ = (id) => document.getElementById(id);
 const storedView = localStorage.getItem("yosee:view");
 const state = {
   source: "", query: "", selected: null, status: "all", article: null,
-  view: ["stream", "saved", "library"].includes(storedView) ? storedView : "stream",
+  view: ["stream", "saved", "library", "today"].includes(storedView) ? storedView : "stream",
   tag: "",
+  todayItems: [],
+  todayError: "",
 };
 const dismissed = new Set();
 const translations = {
-  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗", linkOnly: "只有链接", linkHint: "点卡片会直接打开原网站" },
-  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately", noBody: "Only the link was saved — this site did not include the article text.", openOriginal: "Open original ↗", linkOnly: "Link only", linkHint: "Clicking opens the original site" },
+  zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", viewToday: "今天刷过", todayEmpty: "今天还没刷过文章。", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗", linkOnly: "只有链接", linkHint: "点卡片会直接打开原网站" },
+  en: { brand: "Youdekan", search: "Search", searchPlaceholder: "Search articles", library: "Library", all: "All articles", unread: "Unread", saved: "Saved", archived: "Archived", sources: "Sources", allSources: "All sources", addSource: "+ Add source", latest: "Latest", searchTitle: "Search", loaded: "loaded", loadMore: "Load more", loading: "Loading…", retry: "Retry loading", end: "You’ve reached the end.", empty: "No articles found.", read: "Mark read", unreadAction: "Mark unread", save: "Save", unsave: "Remove saved", original: "Open original ↗", resizeSidebar: "Drag to resize the library, double-click to reset", resizeFeed: "Drag to resize the article list, double-click to reset", backupOk: "Daily backup: ", backupNone: "Daily backup: none yet", backupError: "Daily backup failed", viewStream: "Stream", viewSaved: "Collection", viewLibrary: "Library", viewToday: "Seen today", todayEmpty: "Nothing seen today yet.", seen: "Seen", dismiss: "Skip", tagLike: "Liked", tagLater: "Read later", allTags: "All", exportLinks: "Export links", exportEmpty: "No saved links yet", readerTitle: "Reading", keywordsLabel: "Only show me articles containing", keywordsHint: "Separate with commas. Leave empty to allow everything. When set, only articles whose title or body contains a keyword are kept, and title-only items are skipped.", cleanupOk: "Old-link cleanup: keeping the newest ", cleanupNone: "Old-link cleanup: disabled", sourceStale: "Quiet lately", noBody: "Only the link was saved — this site did not include the article text.", openOriginal: "Open original ↗", linkOnly: "Link only", linkHint: "Clicking opens the original site" },
 };
 let language = localStorage.getItem("language") || "zh";
 const t = (key) => translations[language][key] || key;
@@ -201,8 +203,22 @@ function setView(view, reload = true) {
   document.querySelectorAll(".filter").forEach((button) => button.classList.toggle("active", button.dataset.status === state.status));
   dismissed.clear();
   renderFeed();
-  if (reload) return resetFeed();
+  if (reload) { if (view === "today") return loadToday(); return resetFeed(); }
   return Promise.resolve();
+}
+
+async function loadToday() {
+  state.todayItems = [];
+  state.todayError = "";
+  renderFeed();
+  try {
+    state.todayItems = await api("/seen-today");
+  } catch (error) {
+    // Keep the failure in state; renderFeed() owns #feed-error and would
+    // otherwise immediately overwrite and hide anything written here.
+    state.todayError = error.message;
+  }
+  renderFeed();
 }
 
 function resetFeed() {
@@ -249,6 +265,9 @@ function bindCoverFallbacks() {
 
 function renderCard(item) {
   const stream = state.view !== "library";
+  // "今天刷过" is a history list: everything in it was already seen, so a
+  // "skip" button would be a no-op (todayItems bypasses hideDismissed).
+  const canDismiss = stream && state.view !== "today";
   const saved = !!item.saved;
   const hue = sourceHue(item.source_name || item.title);
   const linkOnly = opensOriginal(item);
@@ -263,12 +282,13 @@ function renderCard(item) {
       <div class="card-actions">
         <button data-save="${escapeHtml(item.id)}" aria-pressed="${saved}">${saved ? t("unsave") : t("save")}</button>
         ${saved ? `<button data-tag="${escapeHtml(item.id)}" data-value="like" aria-pressed="${item.tag === "like"}">${t("tagLike")}</button><button data-tag="${escapeHtml(item.id)}" data-value="later" aria-pressed="${item.tag === "later"}">${t("tagLater")}</button>` : ""}
-        ${stream ? `<button class="card-dismiss" data-dismiss="${escapeHtml(item.id)}">${t("dismiss")} ✕</button>` : ""}
+        ${canDismiss ? `<button class="card-dismiss" data-dismiss="${escapeHtml(item.id)}">${t("dismiss")} ✕</button>` : ""}
       </div>
     </article>`;
 }
 
 function visibleItems() {
+  if (state.view === "today") return state.todayItems;
   const ordered = state.view === "library"
     ? feed.items
     : sortForStream(hideDismissed(feed.items, dismissed));
@@ -277,19 +297,23 @@ function visibleItems() {
 
 function renderFeed() {
   const titles = { all: t("latest"), unread: t("unread"), saved: t("saved"), archived: t("archived") };
-  $("feed-title").textContent = state.view === "saved" ? t("viewSaved")
-    : state.view === "stream" ? t("viewStream")
-      : state.query ? `${t("searchTitle")} · ${titles[state.status]}` : titles[state.status];
+  const isToday = state.view === "today";
+  $("feed-title").textContent = state.view === "today" ? t("viewToday")
+    : state.view === "saved" ? t("viewSaved")
+      : state.view === "stream" ? t("viewStream")
+        : state.query ? `${t("searchTitle")} · ${titles[state.status]}` : titles[state.status];
   const items = visibleItems();
   $("count").textContent = `${items.length} ${t("loaded")}`;
   $("feed").setAttribute("aria-busy", String(feed.loading));
   $("feed").innerHTML = items.map(renderCard).join("");
   bindCoverFallbacks();
-  $("feed-error").textContent = feed.error;
-  $("feed-error").hidden = !feed.error;
-  $("feed-status").textContent = feed.loading ? t("loading")
-    : feed.error ? "" : !items.length ? t("empty") : !feed.cursor ? t("end") : "";
-  $("load-more").hidden = !feed.loading && !feed.cursor && !feed.error;
+  const errorText = isToday ? state.todayError : feed.error;
+  $("feed-error").textContent = errorText;
+  $("feed-error").hidden = !errorText;
+  $("feed-status").textContent = isToday ? (errorText ? "" : !items.length ? t("todayEmpty") : "")
+    : feed.loading ? t("loading")
+      : feed.error ? "" : !items.length ? t("empty") : !feed.cursor ? t("end") : "";
+  $("load-more").hidden = isToday || (!feed.loading && !feed.cursor && !feed.error);
   $("load-more").disabled = feed.loading;
   $("load-more").textContent = feed.loading ? t("loading") : feed.error ? t("retry") : t("loadMore");
 }
@@ -351,7 +375,9 @@ function renderArticle() {
 }
 
 function findItem(id) {
-  return feed.items.find((entry) => entry.id === id) || (state.selected === id ? state.article : null);
+  return feed.items.find((entry) => entry.id === id)
+    || state.todayItems.find((entry) => entry.id === id)
+    || (state.selected === id ? state.article : null);
 }
 
 // Link-only cards have no stored text, so a reader dialog would be empty.
@@ -386,6 +412,11 @@ async function updateState(item, change) {
     if (change.saved === false) merged.tag = null;
     Object.assign(item, merged);
     feed.patch(id, merged);
+    // Marking an item unread clears read_at, so it no longer belongs in the
+    // "seen today" list until it is read again.
+    if (state.view === "today" && change.is_read === false) {
+      state.todayItems = state.todayItems.filter((entry) => entry.id !== id);
+    }
     if (state.selected === id && state.article) {
       Object.assign(state.article, merged);
       renderArticle();
@@ -541,7 +572,7 @@ $("query").addEventListener("input", (event) => {
   searchTimer = setTimeout(resetFeed, 250);
 });
 $("query").addEventListener("keydown", (event) => { if (event.key === "Enter") resetFeed(); });
-$("refresh").addEventListener("click", resetFeed);
+$("refresh").addEventListener("click", () => (state.view === "today" ? loadToday() : resetFeed()));
 $("theme").addEventListener("click", () => {
   const dark = document.documentElement.dataset.theme !== "dark";
   document.documentElement.dataset.theme = dark ? "dark" : "";

@@ -174,3 +174,39 @@ test("app.js routes card clicks through the link-only shortcut", () => {
   assert.match(js, /if \(items\[index\]\) showArticle\(items\[index\]\.id\);/);
   assert.ok(read("feed-store.mjs").includes("item.has_body === false"));
 });
+
+test("today view reuses the stream shell and loads /seen-today", () => {
+  const html = read("index.html");
+  assert.ok(html.includes('data-view="today"'));
+  assert.ok(html.includes('data-i18n="viewToday"'));
+
+  const js = read("app.js");
+  for (const needle of [
+    "loadToday",
+    "/seen-today",
+    "todayItems",
+    "viewToday",
+    "todayEmpty",
+    "isToday",
+    '"today"',
+  ]) {
+    assert.ok(js.includes(needle), `missing ${needle}`);
+  }
+
+  const css = read("app.css");
+  assert.ok(css.includes('body[data-view="today"] .feed-card'));
+});
+
+test("today view keeps its own error and hides the no-op skip button", () => {
+  const js = read("app.js");
+  assert.ok(js.includes("todayError"));
+  assert.ok(js.includes("state.todayError = error.message;"));
+  assert.ok(js.includes("const errorText = isToday ? state.todayError : feed.error;"));
+  // renderFeed() owns #feed-error, so loadToday() must not write to it directly.
+  assert.ok(!js.includes('$("feed-error").textContent = error.message;'));
+  // Already-seen items cannot be dismissed; the button is omitted entirely.
+  assert.ok(js.includes('const canDismiss = stream && state.view !== "today";'));
+  assert.ok(js.includes('${canDismiss ? `<button class="card-dismiss"'));
+  // Card actions must resolve items from the today list too.
+  assert.ok(js.includes("state.todayItems.find((entry) => entry.id === id)"));
+});
