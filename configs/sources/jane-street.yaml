@@ -1,0 +1,13 @@
+id: jane-street
+name: Jane Street Tech Blog
+slug: jane-street
+homepage_url: https://blog.janestreet.com/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.janestreet.com/feed.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

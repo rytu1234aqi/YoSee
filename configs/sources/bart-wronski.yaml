@@ -1,0 +1,13 @@
+id: bart-wronski
+name: Bart Wronski
+slug: bart-wronski
+homepage_url: https://bartwronski.com/
+provider:
+  type: rss
+config:
+  feed_url: https://bartwronski.com/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: swift
+name: Swift Blog
+slug: swift
+homepage_url: https://swift.org/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://swift.org/atom.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

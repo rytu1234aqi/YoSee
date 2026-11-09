@@ -1,0 +1,13 @@
+id: mozilla-hacks
+name: Mozilla Hacks
+slug: mozilla-hacks
+homepage_url: https://hacks.mozilla.org/
+provider:
+  type: rss
+config:
+  feed_url: https://hacks.mozilla.org/feed/
+category: tools
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

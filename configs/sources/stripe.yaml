@@ -1,0 +1,13 @@
+id: stripe
+name: Stripe Blog
+slug: stripe
+homepage_url: https://stripe.com/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://stripe.com/blog/feed.rss
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

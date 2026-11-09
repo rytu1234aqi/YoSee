@@ -1,0 +1,13 @@
+id: go-blog
+name: Go Blog
+slug: go-blog
+homepage_url: https://go.dev/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://go.dev/blog/feed.atom
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

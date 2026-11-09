@@ -1,0 +1,13 @@
+id: fabien-sanglard
+name: Fabien Sanglard
+slug: fabien-sanglard
+homepage_url: https://fabiensanglard.net/
+provider:
+  type: rss
+config:
+  feed_url: https://fabiensanglard.net/rss.xml
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

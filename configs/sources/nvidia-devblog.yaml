@@ -1,0 +1,13 @@
+id: nvidia-devblog
+name: NVIDIA Developer Blog
+slug: nvidia-devblog
+homepage_url: https://developer.nvidia.com/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://developer.nvidia.com/blog/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

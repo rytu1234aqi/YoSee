@@ -1,0 +1,13 @@
+id: alistapart
+name: A List Apart
+slug: alistapart
+homepage_url: https://alistapart.com/
+provider:
+  type: rss
+config:
+  feed_url: https://alistapart.com/main/feed/
+category: design
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

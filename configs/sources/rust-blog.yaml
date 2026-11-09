@@ -1,0 +1,13 @@
+id: rust-blog
+name: Rust Blog
+slug: rust-blog
+homepage_url: https://blog.rust-lang.org/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.rust-lang.org/feed.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

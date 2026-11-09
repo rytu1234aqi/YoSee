@@ -1,0 +1,13 @@
+id: css-tricks
+name: CSS-Tricks
+slug: css-tricks
+homepage_url: https://css-tricks.com/
+provider:
+  type: rss
+config:
+  feed_url: https://css-tricks.com/feed/
+category: design
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: procworld
+name: Procworld
+slug: procworld
+homepage_url: http://procworld.blogspot.com/
+provider:
+  type: rss
+config:
+  feed_url: http://procworld.blogspot.com/feeds/posts/default?alt=rss
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: v8-blog
+name: V8 Blog
+slug: v8-blog
+homepage_url: https://v8.dev/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://v8.dev/blog.atom
+category: tools
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

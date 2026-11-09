@@ -2,7 +2,7 @@
 // time with the same content fingerprint as app.js itself. Keeping the source
 // plain lets asset_version() stay stable, while the browser always requests
 // URLs a stale WebView cache has never seen.
-import { FeedStore, sortForStream, hideDismissed, filterByTag, opensOriginal } from "/static/feed-store.mjs";
+import { FeedStore, sortForStream, hideDismissed, filterByTag, opensOriginal, pickRoundSources } from "/static/feed-store.mjs";
 import { articleFragment, safeUrl, plainText } from "/static/article.mjs";
 import { initResizableLayout } from "/static/layout.mjs";
 
@@ -14,7 +14,10 @@ const state = {
   tag: "",
   todayItems: [],
   todayError: "",
+  roundSources: [],
 };
+const ROUND_SIZE = 15;
+const ROUND_KEY = "yosee:round";
 const dismissed = new Set();
 const translations = {
   zh: { brand: "有得看", search: "搜索", searchPlaceholder: "搜索文章", library: "资料库", all: "全部文章", unread: "未读", saved: "已收藏", archived: "已归档", sources: "来源", allSources: "全部来源", addSource: "+ 添加来源", latest: "最新文章", searchTitle: "搜索", loaded: "已加载", loadMore: "加载更多", loading: "正在加载…", retry: "重试加载", end: "已到末尾", empty: "没有找到文章。", read: "标记为已读", unreadAction: "标记为未读", save: "收藏", unsave: "取消收藏", original: "打开原文 ↗", resizeSidebar: "拖动调整资料库宽度，双击恢复默认", resizeFeed: "拖动调整文章列表宽度，双击恢复默认", backupOk: "每日备份：", backupNone: "每日备份：尚未生成", backupError: "每日备份失败", viewStream: "刷流", viewSaved: "收藏夹", viewLibrary: "资料库", viewToday: "今天刷过", todayEmpty: "今天还没刷过文章。", seen: "已刷过", dismiss: "划走", tagLike: "喜欢", tagLater: "回头再看", allTags: "全部", exportLinks: "导出链接清单", exportEmpty: "还没有收藏的链接", readerTitle: "读文章", keywordsLabel: "只要包含这些词", keywordsHint: "用逗号分开。留空表示都要。设了关键词后，只有标题或正文里出现这些词的文章才会收进来；只有标题、没有正文的会跳过。", cleanupOk: "旧链接清理：保留最近 ", cleanupNone: "旧链接清理：已关闭", sourceStale: "久未更新", noBody: "这篇只存了链接，没有存下正文。", openOriginal: "打开原文 ↗", linkOnly: "只有链接", linkHint: "点卡片会直接打开原网站" },
@@ -55,6 +58,9 @@ const uiLabels = {
     sourceFormNote: "添加之后，可以在来源设置里暂停或修改。",
     autoUpdates: "开启自动更新", cancel: "取消", save: "保存",
     addAndFetch: "添加并抓取",
+    shuffleRound: "换一批 ↻", roundLabel: "本轮 · ", roundLabelTail: " 个来源",
+    roundEmpty: "还没有可用来源，先添加几个吧。",
+    roundEmptyFeed: "这一批来源还没抓到内容，点「换一批」试试。",
   },
   en: {
     moreTools: "More tools", refreshAction: "Refresh", importAction: "Import",
@@ -88,6 +94,9 @@ const uiLabels = {
     sourceFormNote: "You can pause or edit a source after adding it from its source settings.",
     autoUpdates: "Automatic updates enabled", cancel: "Cancel", save: "Save",
     addAndFetch: "Add and fetch",
+    shuffleRound: "Shuffle ↻", roundLabel: "This round · ", roundLabelTail: " sources",
+    roundEmpty: "No sources available yet — add a few first.",
+    roundEmptyFeed: "Nothing from this round yet — try Shuffle.",
   },
 };
 Object.assign(translations.zh, uiLabels.zh);
@@ -178,6 +187,14 @@ async function loadSources() {
     $("sources").innerHTML = sources.map((source) =>
       `<div class="source-row"><button class="source" data-source="${escapeHtml(source.id)}"><span>${escapeHtml(source.name)}</span><small class="${source.stale ? "source-stale" : ""}">${escapeHtml(sourceStatusLabel(source))}</small></button><button class="source-refresh" data-refresh-source="${escapeHtml(source.id)}" title="${escapeHtml(t("fetchNow"))}" aria-label="${escapeHtml(t("fetchNow"))} ${escapeHtml(source.name)}">↻</button><button class="source-edit" data-edit-source="${escapeHtml(source.id)}" title="${escapeHtml(t("settingsTitle"))}" aria-label="${escapeHtml(t("settingsFor"))}${escapeHtml(source.name)}">⚙</button><button class="source-history" data-history-source="${escapeHtml(source.id)}" title="${escapeHtml(t("fetchHistory"))}" aria-label="${escapeHtml(t("historyFor"))}${escapeHtml(source.name)}">≡</button>${source.id.startsWith("custom-") ? `<button class="source-remove" data-remove-source="${escapeHtml(source.id)}" title="${escapeHtml(t("removeFor"))}" aria-label="${escapeHtml(t("removeFor"))}${escapeHtml(source.name)}">×</button>` : ""}</div>`
     ).join("");
+    // A source may have been added, removed or disabled since the round was
+    // saved; drop stale ids so the round label and the query stay honest.
+    const pool = new Set(roundPool());
+    const kept = state.roundSources.filter((id) => pool.has(id));
+    if (kept.length !== state.roundSources.length) {
+      state.roundSources = kept.length ? kept : readRound();
+      saveRound(state.roundSources);
+    }
   } catch (error) {
     $("sources").innerHTML = `<p class="error">${escapeHtml(error.message)}</p><button id="retry-sources">${escapeHtml(t("retrySources"))}</button>`;
     $("retry-sources").addEventListener("click", loadSources);
@@ -282,6 +299,7 @@ function setView(view, reload = true) {
   document.body.dataset.view = view;
   document.querySelectorAll(".view-button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $("saved-filters").hidden = view !== "saved";
+  $("round-bar").hidden = view !== "stream";
   // Only one reader may exist at a time: the classic pane and the full-screen
   // dialog both use #read / #save / #article-body ids.
   $("detail").innerHTML = "";
@@ -309,6 +327,53 @@ async function loadToday() {
   renderFeed();
 }
 
+// ---- one stream round shows a random subset of sources ----
+function roundPool() {
+  return (window.__sources || []).filter((source) => source.enabled).map((source) => source.id);
+}
+
+function pickRound() {
+  return pickRoundSources(roundPool(), ROUND_SIZE);
+}
+
+function readRound() {
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem(ROUND_KEY) || "[]"); } catch (_) { saved = []; }
+  if (!Array.isArray(saved)) saved = [];
+  const pool = new Set(roundPool());
+  // resetFeed() waits for /sources, so an empty pool really means "no enabled
+  // sources" here; never fall back to stale ids from a previous library.
+  const valid = saved.filter((id) => pool.has(id));
+  return valid.length ? valid : pickRound();
+}
+
+function saveRound(ids) {
+  try { localStorage.setItem(ROUND_KEY, JSON.stringify(ids)); } catch (_) { /* private mode */ }
+}
+
+function ensureRound() {
+  if (!state.roundSources.length) {
+    state.roundSources = readRound();
+    saveRound(state.roundSources);
+  }
+  return state.roundSources;
+}
+
+function renderRoundLabel() {
+  const label = $("round-label");
+  if (!label) return;
+  label.textContent = state.roundSources.length
+    ? `${t("roundLabel")}${state.roundSources.length}${t("roundLabelTail")}`
+    : t("roundEmpty");
+}
+
+function shuffleRound() {
+  state.roundSources = pickRound();
+  saveRound(state.roundSources);
+  renderRoundLabel();
+  return resetFeed();
+}
+
 function resetFeed() {
   clearTimeout(searchTimer);
   $("updates").hidden = true;
@@ -316,6 +381,11 @@ function resetFeed() {
   const filters = { status: state.status };
   if (state.source) filters.source_id = state.source;
   if (state.query) filters.q = state.query;
+  if (state.view === "stream") {
+    const round = ensureRound();
+    if (round.length) filters.source_ids = round.join(",");
+    renderRoundLabel();
+  }
   return feed.reset(filters);
 }
 
@@ -401,9 +471,10 @@ function renderFeed() {
   const errorText = isToday ? state.todayError : feed.error;
   $("feed-error").textContent = errorText;
   $("feed-error").hidden = !errorText;
+  const emptyText = state.view === "stream" ? t("roundEmptyFeed") : t("empty");
   $("feed-status").textContent = isToday ? (errorText ? "" : !items.length ? t("todayEmpty") : "")
     : feed.loading ? t("loading")
-      : feed.error ? "" : !items.length ? t("empty") : !feed.cursor ? t("end") : "";
+      : feed.error ? "" : !items.length ? emptyText : !feed.cursor ? t("end") : "";
   $("load-more").hidden = isToday || (!feed.loading && !feed.cursor && !feed.error);
   $("load-more").disabled = feed.loading;
   $("load-more").textContent = feed.loading ? t("loading") : feed.error ? t("retry") : t("loadMore");
@@ -635,6 +706,7 @@ $("view-switch").addEventListener("click", (event) => {
   const button = event.target.closest("button.view-button");
   if (button && button.dataset.view !== state.view) setView(button.dataset.view);
 });
+$("shuffle-round").addEventListener("click", shuffleRound);
 $("saved-filters").addEventListener("click", (event) => {
   const button = event.target.closest("button.tag-filter");
   if (!button) return;
@@ -731,15 +803,16 @@ document.addEventListener("visibilitychange", () => {
   syncRequest?.abort();
   if (!document.hidden) pollSync();
 });
-loadSources();
+const sourcesReady = loadSources();
 setupSourceDialog();
 applyLanguage();
 initResizableLayout();
 loadBackupStatus();
 loadCleanupStatus();
 setView(state.view, false);
-// Record the update revision before loading the first page.
-pollSync().then(resetFeed);
+// The stream round is picked from the source list, so the first feed request
+// waits for /sources. Everything else still boots immediately.
+sourcesReady.then(() => pollSync().then(resetFeed));
 
 // ?debug=1 shows the live viewport/grid geometry and records it in the server
 // access log. Embedded preview panels can be much narrower than the desktop

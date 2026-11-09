@@ -1,0 +1,13 @@
+id: dropbox-tech
+name: Dropbox Tech Blog
+slug: dropbox-tech
+homepage_url: https://dropbox.tech/
+provider:
+  type: rss
+config:
+  feed_url: https://dropbox.tech/feed
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

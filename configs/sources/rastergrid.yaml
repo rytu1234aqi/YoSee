@@ -1,0 +1,13 @@
+id: rastergrid
+name: RasterGrid
+slug: rastergrid
+homepage_url: https://www.rastergrid.com/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://www.rastergrid.com/blog/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

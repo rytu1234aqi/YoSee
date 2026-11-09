@@ -1,0 +1,13 @@
+id: ms-devblogs
+name: Microsoft Developer Blogs
+slug: ms-devblogs
+homepage_url: https://devblogs.microsoft.com/
+provider:
+  type: rss
+config:
+  feed_url: https://devblogs.microsoft.com/feed/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: defold
+name: Defold
+slug: defold
+homepage_url: https://defold.com/
+provider:
+  type: rss
+config:
+  feed_url: https://defold.com/feed.xml
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

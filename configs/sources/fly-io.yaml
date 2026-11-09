@@ -1,0 +1,13 @@
+id: fly-io
+name: Fly.io Blog
+slug: fly-io
+homepage_url: https://fly.io/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://fly.io/blog/feed.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

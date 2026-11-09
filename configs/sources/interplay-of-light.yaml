@@ -1,0 +1,13 @@
+id: interplay-of-light
+name: Interplay of Light
+slug: interplay-of-light
+homepage_url: https://interplayoflight.wordpress.com/
+provider:
+  type: rss
+config:
+  feed_url: https://interplayoflight.wordpress.com/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

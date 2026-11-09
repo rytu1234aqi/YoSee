@@ -1,0 +1,13 @@
+id: dan-luu
+name: Dan Luu
+slug: dan-luu
+homepage_url: https://danluu.com/
+provider:
+  type: rss
+config:
+  feed_url: https://danluu.com/atom.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

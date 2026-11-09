@@ -1,0 +1,13 @@
+id: aras-p
+name: Aras Pranckevicius
+slug: aras-p
+homepage_url: https://aras-p.info/
+provider:
+  type: rss
+config:
+  feed_url: https://aras-p.info/atom.xml
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

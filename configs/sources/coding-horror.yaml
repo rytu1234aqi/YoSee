@@ -1,0 +1,13 @@
+id: coding-horror
+name: Coding Horror
+slug: coding-horror
+homepage_url: https://blog.codinghorror.com/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.codinghorror.com/rss/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

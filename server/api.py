@@ -505,6 +505,14 @@ def _cover_for(item: ContentItem) -> str | None:
     return first_image_url(item.summary, item.canonical_url)
 
 
+def _parse_source_ids(raw: str | None) -> list[str] | None:
+    """Turn a comma-separated query value into a bounded id list."""
+    if not raw:
+        return None
+    ids = [part.strip()[:64] for part in raw.split(",") if part.strip()]
+    return ids[:50] or None
+
+
 def _read_feed(
     session: Session,
     *,
@@ -515,6 +523,7 @@ def _read_feed(
     offset: int = 0,
     cursor: FeedCursor | None = None,
     seen_after: datetime | None = None,
+    source_ids: list[str] | None = None,
 ) -> list[FeedItem]:
     statement = (
         select(
@@ -532,6 +541,8 @@ def _read_feed(
     )
     if source_id:
         statement = statement.where(ContentItem.source_id == source_id)
+    if source_ids is not None:
+        statement = statement.where(ContentItem.source_id.in_(source_ids))
     if q and q.strip():
         literal = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{literal}%"
@@ -1148,6 +1159,7 @@ def create_app(
     @app.get("/feed", response_model=list[FeedItem])
     def feed(
         source_id: str | None = None,
+        source_ids: str | None = Query(default=None, max_length=2000),
         q: str | None = Query(default=None, max_length=200),
         limit: int = Query(default=50, ge=1, le=200),
         offset: int = Query(default=0, ge=0, le=100_000),
@@ -1155,12 +1167,14 @@ def create_app(
     ) -> list[FeedItem]:
         with factory() as session:
             return _read_feed(
-                session, source_id=source_id, q=q, status=status, limit=limit, offset=offset
+                session, source_id=source_id, source_ids=_parse_source_ids(source_ids),
+                q=q, status=status, limit=limit, offset=offset
             )
 
     @app.get("/feed/page", response_model=FeedPage)
     def feed_page(
         source_id: str | None = None,
+        source_ids: str | None = Query(default=None, max_length=2000),
         q: str | None = Query(default=None, max_length=200),
         limit: int = Query(default=50, ge=1, le=200),
         status: str = Query(default="all", pattern="^(all|unread|saved|archived)$"),
@@ -1169,7 +1183,8 @@ def create_app(
         before = FeedCursor.decode(cursor) if cursor is not None else None
         with factory() as session:
             items = _read_feed(
-                session, source_id=source_id, q=q, status=status, limit=limit + 1, cursor=before
+                session, source_id=source_id, source_ids=_parse_source_ids(source_ids),
+                q=q, status=status, limit=limit + 1, cursor=before
             )
         next_cursor = None
         if len(items) > limit:

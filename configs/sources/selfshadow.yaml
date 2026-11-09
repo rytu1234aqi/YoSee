@@ -1,0 +1,13 @@
+id: selfshadow
+name: Self Shadow
+slug: selfshadow
+homepage_url: http://blog.selfshadow.com/
+provider:
+  type: rss
+config:
+  feed_url: http://blog.selfshadow.com/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: blender-dev
+name: Blender Developers Blog
+slug: blender-dev
+homepage_url: https://code.blender.org/
+provider:
+  type: rss
+config:
+  feed_url: https://code.blender.org/feed/
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

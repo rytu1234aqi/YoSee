@@ -1,0 +1,13 @@
+id: demofox
+name: Demofox Blog
+slug: demofox
+homepage_url: https://blog.demofox.org/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.demofox.org/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

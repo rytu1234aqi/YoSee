@@ -1,0 +1,13 @@
+id: smashingmag
+name: Smashing Magazine
+slug: smashingmag
+homepage_url: https://www.smashingmagazine.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.smashingmagazine.com/feed/
+category: design
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

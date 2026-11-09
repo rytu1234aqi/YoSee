@@ -1,0 +1,13 @@
+id: etsy-codeascraft
+name: Etsy Code as Craft
+slug: etsy-codeascraft
+homepage_url: https://codeascraft.com/
+provider:
+  type: rss
+config:
+  feed_url: https://codeascraft.com/feed/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

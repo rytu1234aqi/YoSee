@@ -1,0 +1,13 @@
+id: python-insider
+name: Python Insider
+slug: python-insider
+homepage_url: https://blog.python.org/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.python.org/feeds/posts/default
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

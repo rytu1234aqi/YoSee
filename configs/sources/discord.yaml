@@ -1,0 +1,13 @@
+id: discord
+name: Discord Blog
+slug: discord
+homepage_url: https://discord.com/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://discord.com/blog/rss.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

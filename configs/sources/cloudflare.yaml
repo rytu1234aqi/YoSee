@@ -1,0 +1,13 @@
+id: cloudflare
+name: Cloudflare Blog
+slug: cloudflare
+homepage_url: https://blog.cloudflare.com/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.cloudflare.com/rss/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 7200
+  max_items_per_run: 10

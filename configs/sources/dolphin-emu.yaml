@@ -1,0 +1,13 @@
+id: dolphin-emu
+name: Dolphin Emulator Blog
+slug: dolphin-emu
+homepage_url: https://dolphin-emu.org/
+provider:
+  type: rss
+config:
+  feed_url: https://dolphin-emu.org/blog/feeds/
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: floooh-braindump
+name: The Brain Dump
+slug: floooh-braindump
+homepage_url: https://floooh.github.io/
+provider:
+  type: rss
+config:
+  feed_url: https://floooh.github.io/feed.xml
+category: engines
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

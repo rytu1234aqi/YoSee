@@ -1,0 +1,13 @@
+id: lucumr
+name: Armin Ronacher
+slug: lucumr
+homepage_url: https://lucumr.pocoo.org/
+provider:
+  type: rss
+config:
+  feed_url: https://lucumr.pocoo.org/feed.atom
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

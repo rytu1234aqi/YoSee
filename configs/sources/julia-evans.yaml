@@ -1,0 +1,13 @@
+id: julia-evans
+name: Julia Evans
+slug: julia-evans
+homepage_url: https://jvns.ca/
+provider:
+  type: rss
+config:
+  feed_url: https://jvns.ca/atom.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

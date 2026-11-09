@@ -1,0 +1,13 @@
+id: twir
+name: This Week in Rust
+slug: twir
+homepage_url: https://this-week-in-rust.org/
+provider:
+  type: rss
+config:
+  feed_url: https://this-week-in-rust.org/rss.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

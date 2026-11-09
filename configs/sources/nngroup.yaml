@@ -1,0 +1,13 @@
+id: nngroup
+name: Nielsen Norman Group
+slug: nngroup
+homepage_url: https://www.nngroup.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.nngroup.com/feed/rss/
+category: design
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

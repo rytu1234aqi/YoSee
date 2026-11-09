@@ -1,0 +1,13 @@
+id: chrome-developer-blog
+name: Chrome for Developers Blog
+slug: chrome-developer-blog
+homepage_url: https://developer.chrome.com/blog
+provider:
+  type: rss
+config:
+  feed_url: https://developer.chrome.com/static/blog/feed.xml
+category: tools
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

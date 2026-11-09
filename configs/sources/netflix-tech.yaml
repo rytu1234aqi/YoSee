@@ -1,0 +1,13 @@
+id: netflix-tech
+name: Netflix TechBlog
+slug: netflix-tech
+homepage_url: https://netflixtechblog.com/
+provider:
+  type: rss
+config:
+  feed_url: https://netflixtechblog.com/feed
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

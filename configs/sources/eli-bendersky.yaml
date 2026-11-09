@@ -1,0 +1,13 @@
+id: eli-bendersky
+name: Eli Bendersky
+slug: eli-bendersky
+homepage_url: https://eli.thegreenplace.net/
+provider:
+  type: rss
+config:
+  feed_url: https://eli.thegreenplace.net/feeds/all.atom.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

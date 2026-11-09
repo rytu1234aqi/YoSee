@@ -1,0 +1,13 @@
+id: graphic-rants
+name: Graphic Rants
+slug: graphic-rants
+homepage_url: http://graphicrants.blogspot.com/
+provider:
+  type: rss
+config:
+  feed_url: http://graphicrants.blogspot.com/feeds/posts/default?alt=rss
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

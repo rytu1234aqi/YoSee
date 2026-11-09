@@ -222,3 +222,13 @@ body[data-view="stream"] .card-dismiss:hover, body[data-view="saved"] .card-dism
 :root[data-theme="dark"] .tool-button { color: #dce5ec; }
 :root[data-theme="dark"] .tool-button:hover { background: #223444; }
 @media (max-width: 560px) { .tools-trigger { width: 30px; height: 30px; } .tools-panel { right: -4px; min-width: 172px; } .search { min-width: 0; } .search input { min-width: 0; padding: 8px 10px; } .view-switch { flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; } .view-switch::-webkit-scrollbar { display: none; } }
+
+/* ---- one stream round: a random subset of sources ---- */
+.round-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 0 4px 14px; }
+.round-label { font-size: 12px; color: #71808e; }
+.shuffle-button { border: 1px solid #c8d3dc; border-radius: 16px; padding: 5px 14px; background: white; color: #24536e; font-size: 12px; }
+.shuffle-button:hover { background: #edf5f8; border-color: #1680a9; }
+:root[data-theme="dark"] .round-label { color: #91a0ad; }
+:root[data-theme="dark"] .shuffle-button { background: #17232e; color: #dce5ec; border-color: #2b3b49; }
+:root[data-theme="dark"] .shuffle-button:hover { background: #223444; }
+@media (max-width: 560px) { .round-bar { padding: 0 2px 12px; gap: 8px; } }

@@ -1,0 +1,13 @@
+id: julia-lang
+name: Julia Language Blog
+slug: julia-lang
+homepage_url: https://julialang.org/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://julialang.org/feed.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10
