@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.types import Scope
 
 from server.api import create_app
+from server.ingestion.round import DEFAULT_MAX_SOURCES_PER_ROUND
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
 TOKEN_PLACEHOLDER = "__LOCAL_TOKEN__"
@@ -81,6 +82,7 @@ def create_web_app(
     *,
     auto_fetch: bool = True,
     poll_seconds: float = 30,
+    max_sources_per_round: int = DEFAULT_MAX_SOURCES_PER_ROUND,
     auth_token: str | None = None,
     auto_backup: bool = True,
     backup_dir: Path | None = None,
@@ -100,6 +102,7 @@ def create_web_app(
         database_url,
         auto_fetch=auto_fetch,
         poll_seconds=poll_seconds,
+        max_sources_per_round=max_sources_per_round,
         auth_token=token,
         auto_backup=auto_backup,
         backup_dir=backup_dir,

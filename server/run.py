@@ -10,6 +10,10 @@ from alembic import command
 from alembic.config import Config
 
 from server.database.session import create_db_engine, create_session_factory, get_database_url
+from server.ingestion.round import (
+    DEFAULT_MAX_SOURCES_PER_ROUND,
+    validate_max_sources_per_round,
+)
 from server.ingestion.sources import sync_sources
 
 
@@ -39,6 +43,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--poll-seconds", type=float, default=30, help="check due sources every N seconds"
     )
+    parser.add_argument(
+        "--max-sources-per-round",
+        type=int,
+        default=DEFAULT_MAX_SOURCES_PER_ROUND,
+        help="fetch at most N sources per round tick (default: 15, allowed 1-10000)",
+    )
     parser.add_argument("--sources-dir", type=Path, default=None)
     parser.add_argument(
         "--no-auto-backup", action="store_true", help="disable daily lightweight backups"
@@ -65,6 +75,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--cleanup-keep must be between 50 and 100000")
     if not math.isfinite(args.poll_seconds) or args.poll_seconds <= 0:
         parser.error("--poll-seconds must be finite and positive")
+    try:
+        validate_max_sources_per_round(args.max_sources_per_round)
+    except ValueError as exc:
+        parser.error(str(exc))
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
     if args.host not in {"127.0.0.1", "localhost", "::1"}:
@@ -86,6 +100,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     app = create_web_app(
         auto_fetch=not args.no_auto_fetch,
         poll_seconds=args.poll_seconds,
+        max_sources_per_round=args.max_sources_per_round,
         auto_backup=not args.no_auto_backup,
         backup_dir=args.backup_dir,
         auto_cleanup=not args.no_auto_cleanup,

@@ -19,6 +19,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from server.ingestion.fetcher import Fetcher
 from server.ingestion.pipeline import FetchResult, IngestionPipeline
+from server.ingestion.round import (
+    DEFAULT_MAX_SOURCES_PER_ROUND,
+    RoundSnapshot,
+    RoundTracker,
+    validate_max_sources_per_round,
+)
 from server.models import FetchRun, FetchStatus, Source
 
 logger = logging.getLogger(__name__)
@@ -65,13 +71,16 @@ class FetchScheduler:
         factory: sessionmaker[Session],
         *,
         poll_seconds: float = 30,
+        max_sources_per_round: int = DEFAULT_MAX_SOURCES_PER_ROUND,
         fetcher_factory: Callable[..., Fetcher] = Fetcher,
         now: Callable[[], datetime] = utc_now,
     ) -> None:
         if not math.isfinite(poll_seconds) or poll_seconds <= 0:
             raise ValueError("poll_seconds must be finite and positive")
+        validated_limit = validate_max_sources_per_round(max_sources_per_round)
         self._factory = factory
         self._poll_seconds = poll_seconds
+        self._rounds = RoundTracker(validated_limit)
         self._fetcher_factory = fetcher_factory
         self._now = now
         self._lock = asyncio.Lock()
@@ -129,30 +138,44 @@ class FetchScheduler:
         async with self._lock:
             return await self._fetch_one(source_id)
 
+    def round_status(self) -> RoundSnapshot:
+        """Return a point-in-time view of the round cursor for ``/sync/status``."""
+
+        return self._rounds.snapshot()
+
     async def run_once(self) -> list[FetchResult]:
-        """Fetch only enabled, due sources; failures do not stop the next source."""
+        """Cover one slice of the current round, fetching at most ``N`` sources.
+
+        A round walks every enabled source exactly once and may span several
+        ticks. The persistent round cursor decides *which* pending sources this
+        tick looks at; ``next_fetch_at()`` still decides *when* a source may be
+        fetched. Sources that are not due (or that disappeared mid-round) count
+        as covered without consuming the fetch budget, so a round always
+        finishes. Fetch failures count as processed too, so one broken source
+        cannot stall the round or get retried again inside the same round.
+        """
 
         async with self._lock:
             self.last_error = None
-            due: list[tuple[str, str]] = []
+            moment = self._now()
+            targets: list[str] = []
+            due_ids: set[str] = set()
+            names: dict[str, str] = {}
             with self._factory() as session:
-                ids = list(
-                    session.scalars(
-                        select(Source.id).where(Source.enabled.is_(True)).order_by(Source.id)
-                    )
-                )
-                for source_id in ids:
-                    source = session.get(Source, source_id)
-                    if source is None or not source.enabled:
-                        continue
-                    next_at = next_fetch_at(source)
-                    if next_at is not None and next_at > self._now():
-                        continue
-                    due.append((source_id, source.name))
+                rows = session.scalars(
+                    select(Source).where(Source.enabled.is_(True)).order_by(Source.id)
+                ).all()
+                for row in rows:
+                    targets.append(row.id)
+                    names[row.id] = row.name
+                    next_at = next_fetch_at(row)
+                    if next_at is None or next_at <= moment:
+                        due_ids.add(row.id)
+            plan = self._rounds.plan_tick(targets, due_ids)
             results: list[FetchResult] = []
             try:
-                for source_id, name in due:
-                    self.current_source = name
+                for source_id in plan.fetch_ids:
+                    self.current_source = names.get(source_id, source_id)
                     results.append(await self._fetch_one(source_id))
                 self.last_checked_at = self._now()
                 return results
