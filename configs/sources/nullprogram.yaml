@@ -1,0 +1,13 @@
+id: nullprogram
+name: null program
+slug: nullprogram
+homepage_url: https://nullprogram.com/
+provider:
+  type: rss
+config:
+  feed_url: https://nullprogram.com/feed/
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: microsoft-research
+name: Microsoft Research Blog
+slug: microsoft-research
+homepage_url: https://www.microsoft.com/en-us/research/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://www.microsoft.com/en-us/research/blog/feed/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

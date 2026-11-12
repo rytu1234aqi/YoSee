@@ -1,0 +1,13 @@
+id: babysteps
+name: Baby Steps (Niko Matsakis)
+slug: babysteps
+homepage_url: https://smallcultfollowing.com/babysteps/
+provider:
+  type: rss
+config:
+  feed_url: https://smallcultfollowing.com/babysteps/atom.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

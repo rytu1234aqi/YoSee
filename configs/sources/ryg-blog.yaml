@@ -1,0 +1,13 @@
+id: ryg-blog
+name: The ryg blog
+slug: ryg-blog
+homepage_url: https://fgiesen.wordpress.com/
+provider:
+  type: rss
+config:
+  feed_url: https://fgiesen.wordpress.com/feed/
+category: graphics
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

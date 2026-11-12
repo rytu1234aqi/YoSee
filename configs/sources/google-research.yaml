@@ -1,0 +1,13 @@
+id: google-research
+name: Google Research
+slug: google-research
+homepage_url: https://research.google/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://research.google/blog/rss/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

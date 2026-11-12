@@ -1,0 +1,13 @@
+id: tedinski
+name: Ted Kaminski's Blog
+slug: tedinski
+homepage_url: https://www.tedinski.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.tedinski.com/feed.xml
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

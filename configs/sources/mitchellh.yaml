@@ -1,0 +1,13 @@
+id: mitchellh
+name: Mitchell Hashimoto
+slug: mitchellh
+homepage_url: https://www.mitchellh.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.mitchellh.com/feed.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

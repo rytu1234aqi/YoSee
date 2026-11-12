@@ -1,0 +1,13 @@
+id: quuxplusone
+name: Arthur O'Dwyer's Blog
+slug: quuxplusone
+homepage_url: https://quuxplusone.github.io/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://quuxplusone.github.io/blog/feed.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

@@ -1,0 +1,13 @@
+id: allen-pike
+name: Allen Pike
+slug: allen-pike
+homepage_url: https://www.allenpike.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.allenpike.com/feed/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

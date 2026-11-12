@@ -1,0 +1,13 @@
+id: without-boats
+name: Without Boats
+slug: without-boats
+homepage_url: https://without.boats/
+provider:
+  type: rss
+config:
+  feed_url: https://without.boats/index.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

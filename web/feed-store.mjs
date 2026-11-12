@@ -67,11 +67,21 @@ export class FeedStore {
 
 // "Seen" cards sink to the bottom of the single-column stream. Order inside
 // each group is preserved so cursor paging never reshuffles what was loaded.
-export function sortForStream(items) {
+// When the stream view asks for it, cards with stored article text come first
+// so link-only cards cannot crowd out the long reads. This is only a display
+// order: nothing is removed, and the seen/unseen split still wins over it.
+export function sortForStream(items, preferBody = false) {
   const fresh = [];
   const seen = [];
   for (const item of items) (item.is_read ? seen : fresh).push(item);
-  return fresh.concat(seen);
+  if (!preferBody) return fresh.concat(seen);
+  const bodyFirst = (group) => {
+    const readable = [];
+    const links = [];
+    for (const item of group) (item.has_body === true ? readable : links).push(item);
+    return readable.concat(links);
+  };
+  return bodyFirst(fresh).concat(bodyFirst(seen));
 }
 
 // Dismissed cards leave the current screen immediately; they are still in

@@ -452,7 +452,7 @@ function visibleItems() {
   if (state.view === "today") return state.todayItems;
   const ordered = state.view === "library"
     ? feed.items
-    : sortForStream(hideDismissed(feed.items, dismissed));
+    : sortForStream(hideDismissed(feed.items, dismissed), state.view === "stream");
   return state.view === "saved" ? filterByTag(ordered, state.tag) : ordered;
 }
 

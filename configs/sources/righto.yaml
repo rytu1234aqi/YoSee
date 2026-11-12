@@ -1,0 +1,13 @@
+id: righto
+name: Ken Shirriff's Blog
+slug: righto
+homepage_url: https://www.righto.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.righto.com/feeds/posts/default?alt=rss
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

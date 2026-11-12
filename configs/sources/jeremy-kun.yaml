@@ -1,0 +1,13 @@
+id: jeremy-kun
+name: Math ∩ Programming
+slug: jeremy-kun
+homepage_url: https://www.jeremykun.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.jeremykun.com/feed/
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

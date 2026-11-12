@@ -1,0 +1,13 @@
+id: regehr
+name: John Regehr
+slug: regehr
+homepage_url: https://blog.regehr.org/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.regehr.org/feed
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

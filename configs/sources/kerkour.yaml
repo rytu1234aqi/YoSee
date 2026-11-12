@@ -1,0 +1,13 @@
+id: kerkour
+name: Skerkour Blog
+slug: kerkour
+homepage_url: https://kerkour.com/
+provider:
+  type: rss
+config:
+  feed_url: https://kerkour.com/blog/rss.xml
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

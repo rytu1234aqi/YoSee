@@ -1,0 +1,13 @@
+id: modernescpp
+name: Modernes C++
+slug: modernescpp
+homepage_url: https://www.modernescpp.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.modernescpp.com/index.php/rss
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

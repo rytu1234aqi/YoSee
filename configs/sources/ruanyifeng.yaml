@@ -1,0 +1,13 @@
+id: ruanyifeng
+name: 阮一峰的网络日志
+slug: ruanyifeng
+homepage_url: https://www.ruanyifeng.com/blog/
+provider:
+  type: rss
+config:
+  feed_url: https://www.ruanyifeng.com/blog/atom.xml
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

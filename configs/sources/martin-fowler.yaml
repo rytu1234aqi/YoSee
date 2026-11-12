@@ -1,0 +1,13 @@
+id: martin-fowler
+name: Martin Fowler
+slug: martin-fowler
+homepage_url: https://martinfowler.com/
+provider:
+  type: rss
+config:
+  feed_url: https://martinfowler.com/feed.atom
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

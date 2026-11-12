@@ -1,0 +1,13 @@
+id: codingnow
+name: 云风的 BLOG
+slug: codingnow
+homepage_url: https://blog.codingnow.com/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.codingnow.com/atom.xml
+category: programming
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

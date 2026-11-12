@@ -1,0 +1,13 @@
+id: burntsushi
+name: Andrew Gallant's Blog
+slug: burntsushi
+homepage_url: https://blog.burntsushi.net/
+provider:
+  type: rss
+config:
+  feed_url: https://blog.burntsushi.net/index.xml
+category: languages
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10

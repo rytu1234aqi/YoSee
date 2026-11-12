@@ -1,0 +1,13 @@
+id: schneier
+name: Schneier on Security
+slug: schneier
+homepage_url: https://www.schneier.com/
+provider:
+  type: rss
+config:
+  feed_url: https://www.schneier.com/feed/
+category: devblogs
+enabled: true
+fetch:
+  interval_seconds: 21600
+  max_items_per_run: 10
